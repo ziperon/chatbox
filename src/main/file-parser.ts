@@ -3,8 +3,10 @@ import Epub from 'epub'
 import * as fs from 'fs-extra'
 import * as iconv from 'iconv-lite'
 import officeParser from 'officeparser'
-import { isEpubFilePath, isOfficeFilePath } from '../shared/file-extensions'
+import { isCsvPath, isEpubFilePath, isOfficeFilePath } from '../shared/file-extensions'
 import { getLogger } from './util'
+import * as csv from 'csv-parse/sync';
+
 
 const log = getLogger('file-parser')
 
@@ -132,19 +134,19 @@ async function processLargeText(
   for (let i = 0; i < chunks.length; i++) {
     try {
       log.debug(`Processing chunk ${i + 1}/${chunks.length}`);
-      
+
       // Include user query context with each chunk
-      const chunkWithContext = userQuery 
+      const chunkWithContext = userQuery
         ? `User's query: "${userQuery}"\n\nText to analyze:\n${chunks[i]}`
         : chunks[i];
-      
+
       const result = await processFn(
         chunkWithContext,
         userQuery,
         i + 1, // current chunk number (1-based)
         chunks.length // total chunks
       );
-      
+
       results.push(result);
     } catch (error) {
       log.error(`Error processing chunk ${i + 1}:`, error);
@@ -164,6 +166,16 @@ export async function parseFile(filePath: string) {
     } catch (error) {
       log.error(error)
       throw error
+    }
+  }
+
+  if (isCsvPath(filePath)) {
+    try {
+      const data = await parseCsvFile(filePath);
+      return data;
+    } catch (error) {
+      log.error('Error parsing CSV file:', error);
+      throw error;
     }
   }
 
@@ -197,6 +209,69 @@ export async function parseFile(filePath: string) {
   const fileBuffer = await fs.readFile(filePath)
   const data = iconv.decode(fileBuffer, encoding)
   return data
+}
+
+
+/**
+ * Парсинг CSV файла с автоматическим определением разделителя
+ */
+async function parseCsvFile(filePath: string): Promise<string> {
+  try {
+    // Читаем файл
+    const fileContent = await fs.readFile(filePath, 'utf-8');
+
+    // Пробуем определить разделитель
+    const firstLine = fileContent.split('\n')[0];
+    let delimiter = ',';
+
+    // Проверяем различные разделители
+    if (firstLine.includes('\t')) {
+      delimiter = '\t';
+    } else if (firstLine.includes(';')) {
+      delimiter = ';';
+    } else if (firstLine.includes('|')) {
+      delimiter = '|';
+    }
+
+    // Парсим CSV
+    const records = csv.parse(fileContent, {
+      delimiter,
+      columns: true, // Используем первую строку как заголовки
+      skip_empty_lines: true,
+      trim: true,
+      relax_quotes: true,
+      skip_records_with_error: true
+    });
+
+    if (records.length === 0) {
+      return 'CSV файл пуст или не содержит данных.';
+    }
+
+    // Преобразуем в читаемый текст
+    const headers = Object.keys(records[0]);
+    const rows = records.map(record =>
+      headers.map(header => `${header}: ${record[header] || ''}`).join(', ')
+    );
+
+    // Ограничиваем количество выводимых строк для очень больших файлов
+    const maxRows = 1000;
+    const totalRows = rows.length;
+    const displayedRows = rows.slice(0, maxRows);
+
+    let result = `CSV данные (${totalRows} строк, ${headers.length} колонок):\n\n`;
+    result += `Колонки: ${headers.join(', ')}\n\n`;
+    result += displayedRows.join('\n');
+
+    if (totalRows > maxRows) {
+      result += `\n\n... и еще ${totalRows - maxRows} строк не показано`;
+    }
+
+    return result;
+
+  } catch (error) {
+    log.error('Ошибка при парсинге CSV:', error);
+    throw new Error(`Не удалось обработать CSV файл: ${error.message}`);
+  }
 }
 
 export async function parseEpub(filePath: string): Promise<string> {
@@ -286,14 +361,15 @@ export async function parseEpub(filePath: string): Promise<string> {
   })
 }
 
+
 // Example of how to use it with a user query
 export async function processDocumentWithQuery(
-  filePath: string, 
+  filePath: string,
   userQuery: string,
   processChunkFn: (chunk: string) => Promise<string>
 ): Promise<string> {
   const text = await parseFile(filePath);
-  
+
   return processLargeText(text, processChunkFn, {
     userQuery,
     chunkSize: 3000, // Slightly smaller chunks when including query
@@ -303,14 +379,14 @@ export async function processDocumentWithQuery(
 
 // Example implementation of processChunkFn
 const exampleProcessChunk = async (
-  chunk: string, 
-  userQuery?: string, 
-  chunkIndex?: number, 
+  chunk: string,
+  userQuery?: string,
+  chunkIndex?: number,
   totalChunks?: number
 ): Promise<string> => {
   // Here you would typically call your Ollama API
   // The chunk already includes the user query at the beginning
-  
+
   // Example with Ollama API (uncomment and modify as needed):
   /*
   const response = await ollamaApi.generate({
@@ -325,7 +401,7 @@ const exampleProcessChunk = async (
   });
   return response.response;
   */
-  
+
   // For now, just return the chunk as is
   return chunk;
 };

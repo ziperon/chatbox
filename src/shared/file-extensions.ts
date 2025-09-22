@@ -14,7 +14,6 @@ export const textExts = [
   '.json', // JSON 文件
   '.yaml', // YAML 文件
   '.yml', // YAML 文件的另一种扩展名
-  '.csv', // 逗号分隔值文件
   '.tsv', // 制表符分隔值文件
   '.ini', // 配置文件
   '.log', // 日志文件
@@ -101,4 +100,11 @@ export const epubExts = ['.epub']
 
 export function isEpubFilePath(filePath: string) {
   return epubExts.some((ext) => filePath.toLowerCase().endsWith(ext))
+}
+
+export const csvExts = [
+  '.csv', // 逗号分隔值文件
+]
+export function isCsvPath(filePath: string) {
+  return csvExts.some((ext) => filePath.toLowerCase().endsWith(ext))
 }

@@ -67,6 +67,73 @@ async function concurrentMap<T, R>(
   return results
 }
 
+// Function to split text into chunks with overlap
+function splitTextIntoChunks(text: string, chunkSize: number = 4000, overlap: number = 200): string[] {
+  const chunks: string[] = []
+  let start = 0
+
+  while (start < text.length) {
+    let end = start + chunkSize
+
+    // If this isn't the last chunk, try to find a good breaking point
+    if (end < text.length) {
+      // Look for the nearest sentence or paragraph end
+      const nextSentenceEnd = text.indexOf('. ', end)
+      const nextParagraphEnd = text.indexOf('\n\n', end)
+
+      // Choose the closest natural break point
+      end = Math.min(
+        nextSentenceEnd > 0 ? nextSentenceEnd + 1 : text.length,
+        nextParagraphEnd > 0 ? nextParagraphEnd + 2 : text.length,
+        text.length
+      )
+
+      // If we couldn't find a good break point, just use the chunk size
+      if (end <= start) {
+        end = start + chunkSize
+      }
+    } else {
+      end = text.length
+    }
+
+    const chunk = text.slice(start, end).trim()
+    if (chunk) {
+      chunks.push(chunk)
+    }
+
+    // Move start position, accounting for overlap
+    start = Math.max(start + 1, end - overlap)
+  }
+
+  return chunks
+}
+
+// Process large text by splitting it into chunks and processing each chunk
+async function processLargeText(
+  text: string,
+  processFn: (chunk: string) => Promise<string>,
+  chunkSize: number = 4000,
+  overlap: number = 200
+): Promise<string> {
+  const chunks = splitTextIntoChunks(text, chunkSize, overlap)
+  log.info(`Split text into ${chunks.length} chunks for processing`)
+
+  const results: string[] = []
+
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      log.debug(`Processing chunk ${i + 1}/${chunks.length}`)
+      const result = await processFn(chunks[i])
+      results.push(result)
+    } catch (error) {
+      log.error(`Error processing chunk ${i + 1}:`, error)
+      // Continue with next chunk even if one fails
+    }
+  }
+
+  return results.join('\n\n').trim()
+}
+
 export async function parseFile(filePath: string) {
   if (isOfficeFilePath(filePath)) {
     try {
@@ -172,7 +239,21 @@ export async function parseEpub(filePath: string): Promise<string> {
         }
 
         log.info(`Successfully extracted ${fullText.length} characters from ${chapterTexts.length} chapters`)
-        resolve(fullText)
+
+        // Process the full text with chunking if needed
+        if (fullText.length > 4000) {
+          log.info('Text is large, processing with chunking')
+          const processTextChunk = async (chunk: string): Promise<string> => {
+            // Here you would typically call your Ollama API or other processing
+            // For now, we'll just return the chunk as is
+            return chunk
+          }
+
+          const processedText = await processLargeText(fullText, processTextChunk)
+          resolve(processedText)
+        } else {
+          resolve(fullText)
+        }
       } catch (error) {
         log.error('Error extracting EPUB content:', error)
         reject(error)
@@ -182,3 +263,6 @@ export async function parseEpub(filePath: string): Promise<string> {
     epub.parse()
   })
 }
+
+// Export the chunking functions for use elsewhere
+export { splitTextIntoChunks, processLargeText }

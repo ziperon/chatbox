@@ -108,30 +108,52 @@ function splitTextIntoChunks(text: string, chunkSize: number = 4000, overlap: nu
   return chunks
 }
 
-// Process large text by splitting it into chunks and processing each chunk
+// Process large text by splitting it into chunks and processing each chunk with user query
 async function processLargeText(
   text: string,
-  processFn: (chunk: string) => Promise<string>,
-  chunkSize: number = 4000,
-  overlap: number = 200
+  processFn: (chunk: string, userQuery?: string, chunkIndex?: number, totalChunks?: number) => Promise<string>,
+  options: {
+    chunkSize?: number;
+    overlap?: number;
+    userQuery?: string;
+  } = {}
 ): Promise<string> {
-  const chunks = splitTextIntoChunks(text, chunkSize, overlap)
-  log.info(`Split text into ${chunks.length} chunks for processing`)
+  const {
+    chunkSize = 10000,
+    overlap = 1000,
+    userQuery = ''
+  } = options;
 
-  const results: string[] = []
+  const chunks = splitTextIntoChunks(text, chunkSize, overlap);
+  log.info(`Split text into ${chunks.length} chunks for processing`);
+
+  const results: string[] = [];
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      log.debug(`Processing chunk ${i + 1}/${chunks.length}`)
-      const result = await processFn(chunks[i])
-      results.push(result)
+      log.debug(`Processing chunk ${i + 1}/${chunks.length}`);
+      
+      // Include user query context with each chunk
+      const chunkWithContext = userQuery 
+        ? `User's query: "${userQuery}"\n\nText to analyze:\n${chunks[i]}`
+        : chunks[i];
+      
+      const result = await processFn(
+        chunkWithContext,
+        userQuery,
+        i + 1, // current chunk number (1-based)
+        chunks.length // total chunks
+      );
+      
+      results.push(result);
     } catch (error) {
-      log.error(`Error processing chunk ${i + 1}:`, error)
-      // Continue with next chunk even if one fails
+      log.error(`Error processing chunk ${i + 1}:`, error);
+      // Optionally, you might want to include the original chunk if processing fails
+      results.push(`[Error processing chunk: ${error.message}]\n${chunks[i]}`);
     }
   }
 
-  return results.join('\n\n').trim()
+  return results.join('\n\n').trim();
 }
 
 export async function parseFile(filePath: string) {
@@ -263,6 +285,50 @@ export async function parseEpub(filePath: string): Promise<string> {
     epub.parse()
   })
 }
+
+// Example of how to use it with a user query
+export async function processDocumentWithQuery(
+  filePath: string, 
+  userQuery: string,
+  processChunkFn: (chunk: string) => Promise<string>
+): Promise<string> {
+  const text = await parseFile(filePath);
+  
+  return processLargeText(text, processChunkFn, {
+    userQuery,
+    chunkSize: 3000, // Slightly smaller chunks when including query
+    overlap: 300     // Slightly larger overlap for better context
+  });
+}
+
+// Example implementation of processChunkFn
+const exampleProcessChunk = async (
+  chunk: string, 
+  userQuery?: string, 
+  chunkIndex?: number, 
+  totalChunks?: number
+): Promise<string> => {
+  // Here you would typically call your Ollama API
+  // The chunk already includes the user query at the beginning
+  
+  // Example with Ollama API (uncomment and modify as needed):
+  /*
+  const response = await ollamaApi.generate({
+    model: 'llama3',
+    prompt: chunk,
+    stream: false,
+    options: {
+      // You can include chunk information in the system prompt
+      system: `You are analyzing document part ${chunkIndex} of ${totalChunks}. ` +
+              `Focus on answering the user's query: "${userQuery || 'No specific query provided'}"`
+    }
+  });
+  return response.response;
+  */
+  
+  // For now, just return the chunk as is
+  return chunk;
+};
 
 // Export the chunking functions for use elsewhere
 export { splitTextIntoChunks, processLargeText }

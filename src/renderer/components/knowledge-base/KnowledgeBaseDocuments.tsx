@@ -216,21 +216,75 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
       try {
         const knowledgeBaseController = platform.getKnowledgeBaseController()
 
-        // Process and correct MIME types for all files
-        const correctedFiles: FileMeta[] = []
+        // Helper to read file as base64 (data URL) and strip prefix
+        const readFileAsBase64 = (file: File) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const result = reader.result as string
+              const comma = result.indexOf(',')
+              resolve(comma >= 0 ? result.slice(comma + 1) : result)
+            }
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(file)
+          })
+
+        // Process files: fix MIME types and attach contentBase64 for text-like files, PDFs, and images (for OCR)
+        const enrichedFiles: (FileMeta & { contentBase64?: string })[] = []
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           const correctedFile = correctMimeType(file)
-          correctedFiles.push(correctedFile)
 
-          console.log(`[Upload] File ${i + 1}/${files.length}: ${file.name} (${correctedFile.type})`)
+          const isTextLike =
+            correctedFile.type.startsWith('text/') ||
+            correctedFile.type === 'application/json' ||
+            correctedFile.type === 'text/markdown' ||
+            correctedFile.type === 'text/csv'
+          const isPdf =
+            correctedFile.type === 'application/pdf' || (correctedFile.name || '').toLowerCase().endsWith('.pdf')
+          const isImage = correctedFile.type.startsWith('image/')
+
+          let contentBase64: string | undefined
+          if (isTextLike || isPdf || isImage) {
+            try {
+              contentBase64 = await readFileAsBase64(file)
+            } catch (e) {
+              console.warn('[Upload] Failed to read file as base64:', file.name, e)
+            }
+          }
+
+          enrichedFiles.push({ ...correctedFile, contentBase64 })
+
+          console.log(
+            `[Upload] File ${i + 1}/${files.length}: ${file.name} (${correctedFile.type})`,
+            contentBase64 ? 'with contentBase64' : 'without contentBase64'
+          )
         }
 
         // Upload all files using allSettled to allow partial successes
         const uploadResults = await Promise.allSettled(
-          correctedFiles.map(async (file) => {
+          enrichedFiles.map(async (file) => {
             console.log(`[Upload] Starting upload for file: ${file.name}`)
-            await knowledgeBaseController.uploadFile(knowledgeBase.id, file)
+            let lastRefetch = 0
+            await knowledgeBaseController.uploadFile(knowledgeBase.id, file, (p) => {
+              // Expand section and show upload area while processing
+              if (!isExpanded) setIsExpanded(true)
+              if (!showUploadArea) setShowUploadArea(true)
+              // Throttle refetch during embedding to ~1s to avoid spamming
+              const nowTs = Date.now()
+              const shouldRefetch =
+                p.phase === 'start' ||
+                p.phase === 'ensureCollection' ||
+                p.phase === 'upsert' ||
+                p.phase === 'done' ||
+                nowTs - lastRefetch > 1000
+              if (shouldRefetch) {
+                lastRefetch = nowTs
+                // update files list and count to reflect chunk_count/status changes
+                refetch()
+                refetchCount()
+              }
+            })
             return file
           })
         )
@@ -242,7 +296,7 @@ const KnowledgeBaseDocuments: React.FC<KnowledgeBaseDocumentsProps> = ({ knowled
         // Log individual failures
         failedUploads.forEach((result, index) => {
           if (result.status === 'rejected') {
-            const fileName = correctedFiles[uploadResults.indexOf(result)]?.name || 'Unknown file'
+            const fileName = enrichedFiles[uploadResults.indexOf(result)]?.name || 'Unknown file'
             console.error(`[Upload] Failed to upload file ${fileName}:`, result.reason)
             toast.error(
               t('Failed to upload {{filename}}: {{error}}', {

@@ -47,12 +47,18 @@ export async function getEmbeddingProvider(kbId: number) {
 
         let embeddingModel = (rs.rows[0].embedding_model as string) || ''
 
-        // Provide sensible defaults: if KB didn't specify an embedding model, default to Ollama nomic-embed-text
+        // Provide sensible defaults: prefer Ollama nomic-embed-text
         if (!embeddingModel || typeof embeddingModel !== 'string') {
-          embeddingModel = 'ollama:nomic-embed-text'
+          embeddingModel = 'ollama:nomic-embed-text:latest'
           log.warn(
             `[MODEL] embedding_model not set for kb=${kbId}; using default embedding model: ${embeddingModel}`
           )
+        }
+
+        // If provider is missing, assume ollama
+        if (!embeddingModel.includes(':')) {
+          embeddingModel = `ollama:${embeddingModel}`
+          log.info(`[MODEL] Normalized embedding_model for kb=${kbId} -> ${embeddingModel}`)
         }
 
         const sepIdx = embeddingModel.indexOf(':')
@@ -66,8 +72,10 @@ export async function getEmbeddingProvider(kbId: number) {
 
         const modelSettings = getMergedSettings(providerId, modelId)
         const model = getModel(modelSettings, getConfig(), await createModelDependencies())
-        // Force cast to AbstractAISDKModel to access getTextEmbeddingModel method
-        return (model as any).getTextEmbeddingModel({})
+        // Access text embedding model and attach modelId so downstream can retrieve it (used by file-loaders getOllamaEmbedding)
+        const embModel = (model as any).getTextEmbeddingModel({})
+        ;(embModel as any).modelId = modelId
+        return embModel
       } catch (error: any) {
         log.error(`[MODEL] Failed to get embedding provider for kb ${kbId}:`, error)
         throw error

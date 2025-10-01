@@ -7,6 +7,7 @@ import { sliceTextByTokenLimit } from '@/packages/token'
 import { getBrowser, getOS } from '../packages/navigator'
 import type { Platform, PlatformType } from './interfaces'
 import type { KnowledgeBaseController } from './knowledge-base/interface'
+import WebKnowledgeBaseController from './knowledge-base/web-controller'
 import WebExporter from './web_exporter'
 import { parseTextFileLocally } from './web_platform_utils'
 
@@ -187,7 +188,12 @@ export default class WebPlatform implements Platform {
     throw new Error('Method not implemented.')
   }
 
+  private _kbController?: KnowledgeBaseController
+
   public getKnowledgeBaseController(): KnowledgeBaseController {
-    throw new Error('Method not implemented.')
+    if (!this._kbController) {
+      this._kbController = new WebKnowledgeBaseController()
+    }
+    return this._kbController
   }
 }

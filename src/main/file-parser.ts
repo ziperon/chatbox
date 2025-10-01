@@ -150,7 +150,6 @@ async function processLargeText(
       results.push(result);
     } catch (error) {
       log.error(`Error processing chunk ${i + 1}:`, error);
-      // Optionally, you might want to include the original chunk if processing fails
       results.push(`[Error processing chunk: ${error.message}]\n${chunks[i]}`);
     }
   }

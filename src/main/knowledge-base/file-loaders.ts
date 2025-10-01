@@ -2,7 +2,7 @@ import { MDocument } from '@mastra/rag'
 import { type CoreMessage, embedMany } from 'ai'
 import fs from 'fs'
 import { setTimeout } from 'timers/promises'
-import { isEpubFilePath, isOfficeFilePath, isTextFilePath } from '../../shared/file-extensions'
+import { isEpubFilePath, isOfficeFilePath, isTextFilePath, isCsvPath } from '../../shared/file-extensions'
 import { rerank } from '../../shared/models/rerank'
 import { sentry } from '../adapters/sentry'
 import { parseFile } from '../file-parser'
@@ -56,6 +56,13 @@ async function parseFileToDocument(
   } else if (isEpubFilePath(filePath)) {
     const content = await parseFile(filePath)
     return MDocument.fromText(content)
+  } else if (isCsvPath(filePath)) {
+    // CSV: parse to readable text then wrap as document
+    const content = await parseFile(filePath)
+    return new MDocument({
+      docs: [{ text: content }],
+      type: fileMeta.mimeType,
+    })
   } else if (isTextFilePath(filePath)) {
     const content = await parseFile(filePath)
     return new MDocument({

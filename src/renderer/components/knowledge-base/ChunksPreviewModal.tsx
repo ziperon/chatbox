@@ -46,8 +46,9 @@ const ChunksPreviewModal: React.FC<ChunksPreviewModalProps> = ({
       setChunks([])
 
       try {
-        // Load specified number of chunks
-        const chunkIndices = Array.from({ length: Math.min(maxChunks, file.chunk_count || 0) }, (_, index) => ({
+        // Request first N chunks regardless of current counters (server/web may lag updating chunk_count)
+        const requestCount = Math.max(1, maxChunks)
+        const chunkIndices = Array.from({ length: requestCount }, (_, index) => ({
           fileId: file.id,
           chunkIndex: index,
         }))

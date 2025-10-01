@@ -1,5 +1,12 @@
 import type { FileMeta, KnowledgeBase, KnowledgeBaseFile, KnowledgeBaseSearchResult } from 'src/shared/types'
 
+export type KBUploadProgress = {
+  phase: 'start' | 'ensureCollection' | 'embedding' | 'upsert' | 'done' | 'error'
+  currentChunk: number
+  totalChunks: number
+  message?: string
+}
+
 export interface KnowledgeBaseController {
   list(): Promise<KnowledgeBase[]>
   create(createParams: {
@@ -12,7 +19,7 @@ export interface KnowledgeBaseController {
   listFiles(kbId: number): Promise<KnowledgeBaseFile[]>
   countFiles(kbId: number): Promise<number>
   listFilesPaginated(kbId: number, offset?: number, limit?: number): Promise<KnowledgeBaseFile[]>
-  uploadFile(kbId: number, file: FileMeta): Promise<void>
+  uploadFile(kbId: number, file: FileMeta, onProgress?: (p: KBUploadProgress) => void): Promise<void>
   deleteFile(fileId: number): Promise<void>
   retryFile(fileId: number): Promise<void>
   pauseFile(fileId: number): Promise<void>

@@ -54,7 +54,6 @@ export function settings(): Settings {
 
     ollamaHost: 'http://127.0.0.1:11434',
     //ollamaHost: 'http://llm:11435',
-    ollamaModel: '',
 
     // groqAPIKey: '',
     // groqModel: 'llama3-70b-8192',

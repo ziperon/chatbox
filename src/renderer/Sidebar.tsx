@@ -245,7 +245,7 @@ function SidebarButtons(props: { sessionListRef: React.RefObject<HTMLDivElement>
         </Typography>
       </MenuItem>
 
-      <MenuItem
+      {/* <MenuItem
         onClick={() => {
           navigate({
             to: '/about',
@@ -268,7 +268,7 @@ function SidebarButtons(props: { sessionListRef: React.RefObject<HTMLDivElement>
             {/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}
           </Typography>
         </ListItemText>
-      </MenuItem>
+      </MenuItem> */}
     </MenuList>
   )
 }

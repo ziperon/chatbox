@@ -75,7 +75,18 @@ export async function getEmbeddingProvider(kbId: number) {
         // Access text embedding model and attach modelId so downstream can retrieve it (used by file-loaders getOllamaEmbedding)
         const embModel = (model as any).getTextEmbeddingModel({})
         ;(embModel as any).modelId = modelId
-        return embModel
+        
+        // Get API host from provider settings if available
+        const providerSettings = modelSettings?.providers?.[providerId]
+        const apiHost = typeof providerSettings === 'object' && providerSettings !== null && 'apiHost' in providerSettings
+          ? providerSettings.apiHost
+          : 'http://127.0.0.1:11434'
+          
+        return {
+          ...embModel,
+          modelId,
+          apiHost
+        }
       } catch (error: any) {
         log.error(`[MODEL] Failed to get embedding provider for kb ${kbId}:`, error)
         throw error

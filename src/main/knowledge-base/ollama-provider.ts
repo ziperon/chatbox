@@ -1,12 +1,15 @@
-export async function getOllamaEmbedding(input: string[], model: string = 'dengcao/Qwen3-Embedding-4B:Q8_0'): Promise<number[][]> {
+export async function getOllamaEmbedding(
+  input: string[], 
+  model: string = 'dengcao/Qwen3-Embedding-4B:Q8_0',
+  apiHost: string = 'http://127.0.0.1:11434'
+): Promise<number[][]> {
   const vectors: number[][] = [];
 
   for (const text of input) {
-    const resp = await fetch('http://localhost:11434/api/embed', {
+    const resp = await fetch(`${apiHost}/api/embed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: model, input: text })
-    });
+      body: JSON.stringify({ model: model, input: text })    });
 
     if (!resp.ok) throw new Error(`Ollama error: ${resp.statusText}`);
 

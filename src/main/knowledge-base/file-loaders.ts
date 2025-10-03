@@ -147,9 +147,11 @@ export async function processFileWithMastra(
 
     console.log(embeddingInstance);
     // Ensure vector index exists by getting dimension from first remaining chunk
-    const firstEmbeddingArray = await getOllamaEmbedding([
-      `filename: ${fileMeta.filename}\nchunk:\n${remainingChunks[0].text}`
-    ],embeddingInstance.modelId)
+    const firstEmbeddingArray = await getOllamaEmbedding(
+      [`filename: ${fileMeta.filename}\nchunk:\n${remainingChunks[0].text}`],
+      embeddingInstance.modelId,
+      embeddingInstance.apiHost
+    )
     const firstEmbedding = { embeddings: firstEmbeddingArray }
     
     await vectorStore.createIndex({ indexName, dimension: firstEmbedding.embeddings[0].length })
@@ -172,7 +174,11 @@ export async function processFileWithMastra(
 
       console.log(embeddingInstance);
       // Generate embeddings for this batch
-      const embeddings = await getOllamaEmbedding(batchTexts, embeddingInstance.modelId)
+      const embeddings = await getOllamaEmbedding(
+        batchTexts, 
+        embeddingInstance.modelId,
+        embeddingInstance.apiHost
+      )
       const embeddingResult = { embeddings }
 
       if (!embeddingResult.embeddings || embeddingResult.embeddings.length !== batchTexts.length) {

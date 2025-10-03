@@ -353,8 +353,8 @@ export const SystemProviders: ProviderBaseInfo[] = [
     name: 'Ollama',
     type: ModelProviderType.OpenAI,
     defaultSettings: {
-      apiHost: 'http://127.0.0.1:11434',
-      //apiHost: 'http://llm:11435',
+      //apiHost: 'http://127.0.0.1:11434',
+      apiHost: 'http://llm:11435',
     },
   },
   // {

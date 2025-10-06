@@ -52,8 +52,8 @@ export function settings(): Settings {
     // geminiAPIHost: 'https://generativelanguage.googleapis.com',
     // geminiModel: 'gemini-1.5-pro-latest',
 
-    ollamaHost: 'http://127.0.0.1:11434',
-    //ollamaHost: 'http://llm:11435',
+    //ollamaHost: 'http://127.0.0.1:11434',
+    ollamaHost: 'http://llm:11435',
 
     // groqAPIKey: '',
     // groqModel: 'llama3-70b-8192',

@@ -444,6 +444,11 @@ export interface Settings extends SessionSettings {
 
   extension: ExtensionSettings
   mcp: MCPSettings
+  /**
+   * Current application version
+   * @example '1.2.3'
+   */
+  appVersion?: string
 }
 
 export interface ShortcutSetting {

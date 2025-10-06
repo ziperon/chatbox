@@ -22,6 +22,7 @@ import Locale from './locales'
 import * as mcpIpc from './mcp/ipc-stdio-transport'
 import MenuBuilder from './menu'
 import * as proxy from './proxy'
+import { Client } from 'ldapts'
 import {
   delStoreBlob,
   getConfig,
@@ -37,6 +38,147 @@ import * as windowState from './window_state'
 // Only import knowledge-base module if not on win32 arm64 (libsql doesn't support win32 arm64)
 if (!(process.platform === 'win32' && process.arch === 'arm64')) {
   import('./knowledge-base')
+}
+
+// --------- LDAP Auth ---------
+
+async function ensureLdapAuth(): Promise<void> {
+  if (isAuthenticated) return
+
+  // Create a minimal auth window
+  const preloadPath = app.isPackaged ? path.join(__dirname, 'preload.js') : path.join(__dirname, '../../.erb/dll/preload.js')
+  authWindow = new BrowserWindow({
+    width: 420,
+    height: 360,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 10, y: 16 },
+    show: true,
+    webPreferences: {
+      preload: preloadPath,
+      webSecurity: true,
+    },
+  })
+
+  const html = `<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data:;" />
+    <title>Sign in</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+      .wrap { padding: 24px; }
+      h1 { font-size: 16px; margin: 30px 0px 15px; }
+      label { display: block; font-size: 12px; color: #94a3b8; margin-top: 12px; }
+      input { width: 94%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; }
+      button { margin-top: 16px; width: 100%; padding: 10px 12px; border-radius: 8px; border: 0; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: .6; cursor: default; }
+      .err { color: #f87171; font-size: 12px; margin-top: 8px; min-height: 16px; }
+      .hint { color: #94a3b8; font-size: 12px; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Авторизация</h1>
+      
+      <label>Username</label>
+      <input id="u" type="text" autofocus autocomplete="username" placeholder="CORP\\user" />
+      <label>Password</label>
+      <input id="p" type="password" autocomplete="current-password" />
+      <button id="b">Sign in</button>
+      <div class="err" id="e"></div>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const btn = $('b');
+      const u = $('u');
+      const p = $('p');
+      const e = $('e');
+      async function submit() {
+        e.textContent = '';
+        btn.disabled = true;
+        try {
+          const ok = await window.electronAPI.invoke('ldap-authenticate', { username: u.value || '', password: p.value || '' });
+          if (ok === true) {
+            // success; main process will close this window
+          } else {
+            e.textContent = typeof ok === 'string' ? ok : 'Authentication failed';
+          }
+        } catch (err) {
+          e.textContent = (err && err.message) ? err.message : 'Authentication failed';
+        } finally {
+          btn.disabled = false;
+          p.value = '';
+        }
+      }
+      btn.addEventListener('click', submit);
+      p.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') submit(); });
+    </script>
+  </body>
+  </html>`
+
+  await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+}
+
+ipcMain.handle('ldap-authenticate', async (event, payload: { username: string; password: string }) => {
+  try {
+    const usernameRaw = (payload?.username || '').trim()
+    
+    // Allow admin/admin in development mode
+    if (process.env.NODE_ENV === 'development' && usernameRaw === 'admin' && payload?.password === 'admin') {
+      return await handleSuccessfulAuth()
+    }
+    
+    const password = payload?.password ?? ''
+    if (!usernameRaw || !password) {
+      return 'Username and password are required'
+    }
+
+    const url = 'ldaps://moscow-corp-ldaps.corp.vtbcapital.internal'
+
+    // Try multiple username formats if needed
+    const candidates: string[] = []
+    candidates.push(usernameRaw)
+    if (!usernameRaw.includes('@')) {
+      candidates.push(`${usernameRaw}@corp.vtbcapital.internal`)
+    }
+    if (!usernameRaw.includes('\\')) {
+      candidates.push(`CORP\\${usernameRaw}`)
+    }
+
+    let lastError: any = null
+    for (const bindDN of candidates) {
+      const client = new Client({ url, tlsOptions: { rejectUnauthorized: false } })
+      try {
+        await client.bind(bindDN, password)
+        await client.unbind().catch(() => {})
+        return await handleSuccessfulAuth()
+      } catch (e) {
+        lastError = e
+      } finally {
+        try { await (async () => client.unbind().catch(() => {}))() } catch {}
+      }
+    }
+    return (lastError && lastError.message) ? String(lastError.message) : 'Authentication failed'
+  } catch (err: any) {
+    return (err && err.message) ? String(err.message) : 'Authentication failed'
+  }
+})
+
+async function handleSuccessfulAuth(): Promise<boolean> {
+  isAuthenticated = true
+  if (authWindow) {
+    try { authWindow.close() } catch {}
+    authWindow = null
+  }
+  // proceed to create main window if not already present
+  if (!mainWindow) {
+    await createWindow()
+  }
+  return true
 }
 
 // 这行代码是解决 Windows 通知的标题和图标不正确的问题，标题会错误显示成 electron.app.Chatbox
@@ -64,6 +206,8 @@ if (process.defaultApp) {
 // --------- 全局变量 ---------
 
 let mainWindow: BrowserWindow | null = null
+let authWindow: BrowserWindow | null = null
+let isAuthenticated = false
 let tray: Tray | null = null
 
 // --------- 快捷键 ---------
@@ -384,8 +528,9 @@ if (!gotTheLock) {
 
   app
     .whenReady()
-    .then(() => {
-      createWindow()
+    .then(async () => {
+      // Show auth window first; main window is created after successful auth
+      await ensureLdapAuth()
       ensureTray()
       // Remove this if your app does not use auto updates
       // eslint-disable-next-line
@@ -393,7 +538,11 @@ if (!gotTheLock) {
         // On macOS it's common to re-create a window in the app when the
         // dock icon is clicked and there are no other windows open.
         if (mainWindow === null) {
-          createWindow()
+          if (isAuthenticated) {
+            createWindow()
+          } else if (!authWindow) {
+            ensureLdapAuth()
+          }
         }
         if (mainWindow && !mainWindow.isVisible()) {
           mainWindow.show()

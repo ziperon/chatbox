@@ -19,72 +19,73 @@ if (process.env.NODE_ENV === 'production') {
 
 const port = process.env.PORT || 1212
 const manifest = path.resolve(webpackPaths.dllPath, 'renderer.json')
+const fallbacks = {
+  path: require.resolve('path-browserify'),
+  os: require.resolve('os-browserify/browser'),
+  crypto: require.resolve('crypto-browserify'),
+  stream: require.resolve('stream-browserify'),
+  buffer: require.resolve('buffer/'),
+  util: require.resolve('util/'),
+  process: require.resolve('process/browser'),
+}
 const skipDLLs =
   module.parent?.filename.includes('webpack.config.renderer.dev.dll') ||
   module.parent?.filename.includes('webpack.config.eslint')
 
 const DEV_WEB_ONLY = process.env.DEV_WEB_ONLY === 'true'
-
-const configuration: webpack.Configuration = {
-  devtool: 'inline-source-map',
-
-  mode: 'development',
-
-  target: ['web', 'electron-renderer'],
-
-  entry: [
-    `webpack-dev-server/client?http://localhost:${port}/dist`,
-    'webpack/hot/only-dev-server',
-    path.join(webpackPaths.srcRendererPath, 'index.tsx'),
-  ],
-
-  output: {
-    path: webpackPaths.distRendererPath,
-    publicPath: '/',
-    filename: 'renderer.dev.js',
-    library: {
-      type: 'umd',
-    },
-  },
-
-  module: {
-    rules: [
-      {
-        test: /\.s?(c|a)ss$/,
-        use: [
-          'style-loader',
-          {
-            loader: 'css-loader',
-            options: {
-              modules: true,
-              sourceMap: true,
-              importLoaders: 1,
-            },
-          },
-          'sass-loader',
-        ],
-        include: /\.module\.s?(c|a)ss$/,
-      },
-      {
-        test: /\.s?css$/,
-        use: ['style-loader', 'css-loader', 'sass-loader', 'postcss-loader'],
-        exclude: /\.module\.s?(c|a)ss$/,
-        sideEffects: true,
-      },
-      // Fonts
-      {
-        test: /\.(woff|woff2|eot|ttf|otf)$/i,
-        type: 'asset/resource',
-      },
-      // Images and other static files
-      {
-        test: /\.(png|jpg|jpeg|gif|svg)$/,
-        type: 'asset/resource',
-      },
     ],
   },
-
+  resolve: {
+    fallback: {
+      ...fallbacks,
+    },
+    extensions: ['.js', '.jsx', '.json', '.ts', '.tsx'],
+    modules: [webpackPaths.srcRendererPath, 'node_modules'],
+  },
   plugins: [
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      'process.env.DEBUG_PROD': JSON.stringify(process.env.DEBUG_PROD || 'false'),
+      'process.env.START_MINIMIZED': JSON.stringify(process.env.START_MINIMIZED || 'false'),
+      'process.env.APP_VERSION': JSON.stringify(process.env.npm_package_version || '0.0.0'),
+      'process.versions.electron': JSON.stringify(process.versions.electron || process.env.ELECTRON_VERSION || ''),
+      'process.type': JSON.stringify('renderer'),
+      'process.platform': JSON.stringify(process.platform || ''),
+    }),
+    ...(skipDLLs
+      ? []
+      : [
+          new webpack.DllReferencePlugin({
+            context: webpackPaths.dllPath,
+            manifest,
+            sourceType: 'var',
+          }),
+        ]),
+
+    new webpack.NoEmitOnErrorsPlugin(),
+    TanStackRouterWebpack({
+      target: 'react',
+      autoCodeSplitting: true,
+      routesDirectory: './src/renderer/routes',
+      generatedRouteTree: './src/renderer/routeTree.gen.ts',
+    }),
+
+    /**
+     * Create global constants which can be configured at compile time.
+     *
+     * Useful for allowing different behaviour between development builds and
+     * release builds
+     *
+     * NODE_ENV should be production so that modules do not perform certain
+     * development checks
+     *
+     * By default, use 'development' as NODE_ENV. This can be overriden with
+     * 'staging', for example, by changing the ENV variables in the npm scripts
+     */
     new webpack.EnvironmentPlugin({
       NODE_ENV: 'development',
     }),
@@ -93,16 +94,12 @@ const configuration: webpack.Configuration = {
       debug: true,
     }),
 
-    new ReactRefreshWebpackPlugin(),
-
-    new webpack.HotModuleReplacementPlugin(),
-
     new BundleAnalyzerPlugin({
       analyzerMode: process.env.ANALYZE === 'true' ? 'server' : 'disabled',
       analyzerPort: 8889,
     }),
 
-    new webpack.NoEmitOnErrorsPlugin(),
+    new ReactRefreshWebpackPlugin(),
 
     new HtmlWebpackPlugin({
       filename: path.join('index.html'),
@@ -116,27 +113,7 @@ const configuration: webpack.Configuration = {
       env: process.env.NODE_ENV,
       isDevelopment: process.env.NODE_ENV !== 'production',
       nodeModules: webpackPaths.appNodeModulesPath,
-    }),
-
-    new webpack.DefinePlugin({
-      'process.type': '"renderer"',
-    }),
-
-    ...(skipDLLs
-      ? []
-      : [
-          new webpack.DllReferencePlugin({
-            context: webpackPaths.dllPath,
-            manifest: require(manifest),
-            sourceType: 'var',
-          }),
-        ]),
-
-    TanStackRouterWebpack({
-      target: 'react',
-      autoCodeSplitting: true,
-      routesDirectory: './src/renderer/routes',
-      generatedRouteTree: './src/renderer/routeTree.gen.ts',
+      favicon: path.join(webpackPaths.srcRendererPath, 'favicon.ico'),
     }),
   ],
 
@@ -169,9 +146,7 @@ const configuration: webpack.Configuration = {
         console.log('Starting Main Process...')
         let args = ['run', 'start:main']
         if (process.env.MAIN_ARGS) {
-          args = args.concat(
-            ...process.env.MAIN_ARGS.matchAll(/"[^"]+"|[^\s"]+/g)
-          )
+          args = args.concat(['--', ...process.env.MAIN_ARGS.matchAll(/"[^"]+"|[^\s"]+/g)].flat())
         }
         spawn('npm', args, {
           shell: true,

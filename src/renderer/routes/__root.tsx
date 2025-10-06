@@ -81,7 +81,10 @@ function Root() {
               // 用户选择Add Custom Provider的话，暂时无法直接拉起添加自定义供应商的弹窗，先跳去默认的供应商配置页
               if (provider === 'custom') {
                 navigate({
-                  to: '/settings/provider/ollama',
+                  to: '/settings/provider/$providerId',
+                  params: {
+                    providerId: 'ollama',
+                  },
                   search: {
                     custom: true,
                   },
@@ -96,7 +99,10 @@ function Root() {
               }
             } else {
               navigate({
-                to: '/settings/provider/ollama',
+                to: '/settings/provider/$providerId',
+                params: {
+                  providerId: 'ollama',
+                },
               })
             }
           }

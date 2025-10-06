@@ -1,38 +1,127 @@
 import { atom, type SetStateAction } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { focusAtom } from 'jotai-optics'
-import { omit } from 'lodash'
+import { omit, isEqual } from 'lodash'
 import * as defaults from '../../../shared/defaults'
 import { type SessionSettings, type Settings, type SettingWindowTab, Theme } from '../../../shared/types'
+import { isNewerVersion, getAppVersion } from '../../../shared/utils/version'
 import platform from '../../platform'
 import storage, { StorageKey } from '../../storage'
+
+// Helper function to get settings from storage
+const getStoredSettings = async (): Promise<Settings> => {
+  try {
+    // Get settings with default value from defaults
+    return await storage.getItem(StorageKey.Settings, defaults.settings());
+  } catch (error) {
+    console.error('Failed to get settings:', error);
+    return defaults.settings();
+  }
+};
+
+// Helper function to update settings in storage
+const updateSettings = async (updateFn: (settings: Settings) => Settings) => {
+  try {
+    const currentSettings = await getStoredSettings();
+    const newSettings = updateFn(currentSettings);
+    await storage.setItem(StorageKey.Settings, newSettings);
+  } catch (error) {
+    console.error('Failed to update settings:', error);
+  }
+};
+
+// Initialize settings with default values
+const initialSettings: Settings = {
+  ...defaults.settings(),
+  theme: (() => {
+    const initialTheme = localStorage.getItem('initial-theme')
+    if (initialTheme === 'light') {
+      return Theme.Light
+    } else if (initialTheme === 'dark') {
+      return Theme.Dark
+    }
+    return Theme.System
+  })(),
+};
 
 // settings
 const _settingsAtom = atomWithStorage<Settings>(
   StorageKey.Settings,
+  initialSettings,
   {
-    ...defaults.settings(),
-    theme: (() => {
-      const initialTheme = localStorage.getItem('initial-theme')
-      if (initialTheme === 'light') {
-        return Theme.Light
-      } else if (initialTheme === 'dark') {
-        return Theme.Dark
+    getItem: async (key) => {
+      try {
+        return await storage.getItem(key, initialSettings);
+      } catch (error) {
+        console.error('Error reading settings:', error);
+        return initialSettings;
       }
-      return Theme.System
-    })(),
-  },
-  storage
+    },
+    setItem: async (key, value) => {
+      try {
+        await storage.setItem(key, value);
+      } catch (error) {
+        console.error('Error saving settings:', error);
+      }
+    },
+    removeItem: async (key) => {
+      try {
+        await storage.removeItem(key);
+      } catch (error) {
+        console.error('Error removing settings:', error);
+      }
+    },
+    subscribe: () => () => {},
+  }
 )
+/**
+ * Migrate settings when the app version changes
+ */
+function migrateSettings(settings: Settings): Settings {
+  const defaultSettings = defaults.settings();
+  const currentVersion = getAppVersion();
+  
+  // If no version or older version, apply migrations
+  if (!settings.appVersion || isNewerVersion(currentVersion, settings.appVersion)) {
+    // Merge with default settings to ensure all new fields are present
+    const mergedSettings = { ...defaultSettings, ...settings };
+    
+    // Apply version-specific migrations here
+    // Example:
+    // if (isNewerVersion('1.2.0', settings.appVersion || '0.0.0')) {
+    //   // Migration for version 1.2.0
+    //   mergedSettings.someNewSetting = defaultSettings.someNewSetting;
+    // }
+
+    // Update the version
+    mergedSettings.appVersion = currentVersion;
+    
+    return mergedSettings;
+  }
+  
+  return settings;
+}
+
 export const settingsAtom = atom(
   (get) => {
-    const _settings = get(_settingsAtom)
-    // 兼容早期版本
-    const settings = Object.assign({}, defaults.settings(), _settings)
-    settings.shortcuts = Object.assign({}, defaults.settings().shortcuts, _settings.shortcuts)
-    settings.mcp = Object.assign({}, defaults.settings().mcp, _settings.mcp)
-    // 移除已废弃的属性
-    return omit(settings, ['maxTokens', 'maxContextSize']) as Settings
+    const _settings = get(_settingsAtom);
+    
+    // Migrate settings if needed
+    const migratedSettings = migrateSettings(_settings);
+    
+    // If settings were migrated, update them in the background
+    if (!isEqual(_settings, migratedSettings)) {
+      // Don't await this to avoid blocking the render
+      updateSettings(() => migratedSettings).catch(console.error);
+    }
+    
+    // Merge with defaults and clean up
+    const settings = Object.assign({}, defaults.settings(), migratedSettings);
+    settings.shortcuts = Object.assign({}, defaults.settings().shortcuts, migratedSettings.shortcuts);
+    settings.mcp = Object.assign({}, defaults.settings().mcp, migratedSettings.mcp);
+    
+    // Remove deprecated properties
+    return omit(settings, ['maxTokens', 'maxContextSize']) as Settings;
   },
   (get, set, update: SetStateAction<Settings>) => {
     const settings = get(_settingsAtom)

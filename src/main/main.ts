@@ -71,9 +71,9 @@ async function ensureLdapAuth(): Promise<void> {
     <style>
       body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
       .wrap { padding: 24px; }
-      h1 { font-size: 16px; margin: 0 0 16px; }
+      h1 { font-size: 16px; margin: 30px 0px 15px; }
       label { display: block; font-size: 12px; color: #94a3b8; margin-top: 12px; }
-      input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; }
+      input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; }
       button { margin-top: 16px; width: 100%; padding: 10px 12px; border-radius: 8px; border: 0; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
       button:disabled { opacity: .6; cursor: default; }
       .err { color: #f87171; font-size: 12px; margin-top: 8px; min-height: 16px; }
@@ -82,10 +82,10 @@ async function ensureLdapAuth(): Promise<void> {
   </head>
   <body>
     <div class="wrap">
-      <h1>LDAP Sign in</h1>
-      <div class="hint">Use corporate credentials. Format: user@corp.vtbcapital.internal or CORP\\user</div>
+      <h1>Авторизация</h1>
+      
       <label>Username</label>
-      <input id="u" type="text" autofocus autocomplete="username" />
+      <input id="u" type="text" autofocus autocomplete="username" placeholder="CORP\\user" />
       <label>Password</label>
       <input id="p" type="password" autocomplete="current-password" />
       <button id="b">Sign in</button>

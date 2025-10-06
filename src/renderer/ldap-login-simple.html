@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LDAP Sign In</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .login-container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #1e293b;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #e2e8f0;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:disabled {
+      background: #1e40af;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .error {
+      color: #f87171;
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 20px;
+    }
+    .hint {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1>LDAP Sign In</h1>
+    <div class="hint">Use corporate credentials. Format: user@corp.vtbcapital.internal or CORP\user</div>
+    
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input 
+        id="username" 
+        type="text" 
+        placeholder="Enter your username" 
+        autocomplete="username"
+        autofocus
+      >
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input 
+        id="password" 
+        type="password" 
+        placeholder="Enter your password"
+        autocomplete="current-password"
+      >
+    </div>
+    
+    <button id="login-button">Sign In</button>
+    <div id="error-message" class="error"></div>
+  </div>
+
+  <script>
+    // Debug function to log to both console and UI
+    function debugLog(message, isError = false) {
+      console.log(`[LDAP-Login] ${message}`);
+      if (isError) {
+        console.error(message);
+      }
+    }
+
+    // Check if we're running in Electron
+    function isElectron() {
+      return window && window.process && window.process.type;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      debugLog('DOM Content Loaded');
+      
+      const usernameInput = document.getElementById('username');
+      const passwordInput = document.getElementById('password');
+      const loginButton = document.getElementById('login-button');
+      const errorMessage = document.getElementById('error-message');
+      
+      // Check if we're running in Electron and loginAPI is available
+      const isElectronEnv = isElectron();
+      debugLog(`Running in ${isElectronEnv ? 'Electron' : 'browser'} environment`);
+      
+      if (isElectronEnv && !window.loginAPI) {
+        const errorMsg = 'Login API is not available. The application may not be properly initialized.';
+        debugLog(errorMsg, true);
+        errorMessage.textContent = errorMsg;
+        errorMessage.style.color = '#ff6b6b';
+        return;
+      }
+
+      // Development mode check
+      const isDev = window.location.hostname === 'localhost' || window.location.protocol === 'file:';
+      debugLog(`Development mode: ${isDev ? 'enabled' : 'disabled'}`);
+      
+      async function handleLogin() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+          errorMessage.textContent = 'Please enter both username and password';
+          return;
+        }
+
+        // Handle development mode with admin/admin credentials
+        if ((isDev || !window.loginAPI) && username === 'admin' && password === 'admin') {
+          debugLog('Development mode: Using admin credentials');
+          try {
+            // First try using the new method with ipcRenderer
+            if (window.electron && window.electron.ipcRenderer) {
+              debugLog('Using electron.ipcRenderer for authentication');
+              const result = await window.electron.ipcRenderer.invoke('ldap-authenticate', { 
+                username, 
+                password 
+              });
+              debugLog('Authentication result via ipcRenderer:', result);
+              if (result === true) {
+                debugLog('Authentication successful via ipcRenderer');
+                window.close();
+                return;
+              }
+            }
+            
+            // Fallback to loginAPI if available
+            if (window.loginAPI && window.loginAPI.invoke) {
+              debugLog('Using loginAPI for authentication');
+              const result = await window.loginAPI.invoke('ldap-authenticate', { 
+                username, 
+                password 
+              });
+              debugLog('Development authentication result:', result);
+              if (result === true) {
+                debugLog('Authentication successful via loginAPI');
+                window.close();
+                return;
+              }
+            }
+            
+            // Directly notify main process as last resort
+            debugLog('Using direct postMessage to parent');
+            if (window.opener) {
+              window.opener.postMessage({ 
+                type: 'ldap-auth-success', 
+                username,
+                isDevelopment: true
+              }, '*');
+            }
+            window.close();
+            
+          } catch (error) {
+            debugLog(`Error in development login: ${error.message}`, true);
+            errorMessage.textContent = `Development login error: ${error.message}`;
+            loginButton.disabled = false;
+          }
+          return;
+        }
+        
+                loginButton.disabled = true;
+        errorMessage.textContent = '';
+        errorMessage.style.color = '#f87171'; // Red for errors
+        loginButton.textContent = 'Signing in...';
+        
+        try {
+          debugLog(`Attempting to authenticate user: ${username}`);
+          
+          // Check if we have the loginAPI available
+          if (!window.loginAPI || !window.loginAPI.invoke) {
+            throw new Error('Authentication service is not available. Please restart the application.');
+          }
+          
+          const result = await window.loginAPI.invoke('ldap-authenticate', { 
+            username, 
+            password 
+          });
+          
+          debugLog('Authentication result:', result);
+          
+          if (result === true) {
+            debugLog('Authentication successful');
+            // The main process will handle the window close
+            
+            // Notify parent window if in a popup
+            if (window.opener) {
+              window.opener.postMessage({ type: 'ldap-auth-success', username }, '*');
+            }
+          } else {
+            const errorMsg = typeof result === 'string' ? result : 'Authentication failed';
+            debugLog(`Authentication failed: ${errorMsg}`, true);
+            errorMessage.textContent = errorMsg;
+            passwordInput.value = '';
+          }
+        } catch (error) {
+          const errorMsg = error && error.message ? error.message : 'An unknown error occurred';
+          console.error('Login error:', error);
+          debugLog(`Login error: ${errorMsg}`, true);
+          
+          // More specific error messages for common issues
+          if (errorMsg.includes('contextBridge')) {
+            errorMessage.textContent = 'Application error: Context bridge not available. Please restart the application.';
+          } else if (errorMsg.includes('IPC')) {
+            errorMessage.textContent = 'Application error: Communication with main process failed. Please try again.';
+          } else {
+            errorMessage.textContent = `Authentication error: ${errorMsg}`;
+          }
+          
+          passwordInput.value = '';
+        } finally {
+          loginButton.disabled = false;
+          loginButton.textContent = 'Sign In';
+        }
+      }
+      
+      // Handle login button click
+      loginButton.addEventListener('click', handleLogin);
+      
+      // Handle Enter key in both username and password fields
+      function handleKeyDown(e) {
+        if (e.key === 'Enter') {
+          handleLogin();
+        }
+      }
+      
+      usernameInput.addEventListener('keydown', handleKeyDown);
+      passwordInput.addEventListener('keydown', handleKeyDown);
+
+      // Focus the username field on load
+      usernameInput.focus();
+      
+      // Add a small delay to ensure the window is fully loaded and focused
+      setTimeout(() => {
+        if (document.activeElement !== usernameInput && document.activeElement !== passwordInput) {
+          usernameInput.focus();
+        }
+      }, 100);
+      
+      // Log when the window is fully loaded
+      window.addEventListener('load', () => {
+        debugLog('Window fully loaded');
+      });
+    });
+  </script>
+</body>
+</html>

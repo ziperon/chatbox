@@ -5,6 +5,10 @@ import type { ProviderModelInfo, Settings, ProviderSettings } from 'src/shared/t
 import storage from '@/storage'
 import { StorageKey } from '@/storage/StoreStorage'
 import * as defaults from 'src/shared/defaults'
+// In your app initialization code
+import { setupFirstKnowledgeBase } from './setupFirstKnowledgeBase'
+
+
 
 async function updateAllProviderModels() {
   try {
@@ -33,7 +37,8 @@ async function updateAllProviderModels() {
             .map((option) => {
               const capabilities: ('vision' | 'reasoning' | 'tool_use' | 'web_search')[] = []
               if (/ocr/i.test(option.value) || /vision/i.test(option.value)) capabilities.push('vision')
-              if (/tool/i.test(option.value)) capabilities.push('tool_use')
+              if (/tool/i.test(option.value) || /Instruct/i.test(option.value)) capabilities.push('tool_use')
+              if (/tool/i.test(option.value) || /Instruct/i.test(option.value)) capabilities.push('reasoning')
               
               // Логируем модели с capabilities для отладки
               if (capabilities.length > 0) {
@@ -85,7 +90,16 @@ async function updateAllProviderModels() {
 
 export async function initData() {
   await initSessionsIfNeeded()
-  await updateAllProviderModels()
+  try {   
+    await updateAllProviderModels()
+  } catch (error) {
+    console.error('Failed to update provider models:', error)
+  }
+  try {
+    await setupFirstKnowledgeBase()
+  } catch (error) {
+    console.error('Failed to setup first knowledge base:', error)
+  }
 }
 
 // Функция для принудительного обновления моделей при запуске

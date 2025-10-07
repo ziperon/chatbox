@@ -8,7 +8,7 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeTheme, session, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeTheme, session, shell, Tray } from 'electron'
 import log from 'electron-log/main'
 import { autoUpdater } from 'electron-updater'
 import os from 'os'
@@ -22,7 +22,22 @@ import Locale from './locales'
 import * as mcpIpc from './mcp/ipc-stdio-transport'
 import MenuBuilder from './menu'
 import * as proxy from './proxy'
-import { Client } from 'ldapts'
+// Dynamically import ldapts to handle Electron's context isolation
+let ldapts: any = null;
+let ldaptsPromise: Promise<any> | null = null;
+
+async function getLdapClient() {
+  if (!ldapts) {
+    if (!ldaptsPromise) {
+      ldaptsPromise = import('ldapts').then(module => {
+        ldapts = module;
+        return module;
+      });
+    }
+    await ldaptsPromise;
+  }
+  return ldapts;
+}
 import {
   delStoreBlob,
   getConfig,
@@ -169,16 +184,53 @@ ipcMain.handle('ldap-authenticate', async (event, payload: { username: string; p
 })
 
 async function handleSuccessfulAuth(): Promise<boolean> {
-  isAuthenticated = true
-  if (authWindow) {
-    try { authWindow.close() } catch {}
-    authWindow = null
+  try {
+    console.log('Authentication successful, setting up session...')
+    
+    // Set authentication state
+    isAuthenticated = true;
+    
+    // Save the authentication state
+    store.set('ldap_auth', {
+      authenticated: true,
+      timestamp: Date.now(),
+      username: 'user',
+      displayName: 'User'
+    });
+    
+    // Close the auth window if it exists
+    if (authWindow) {
+      authWindow.close();
+      authWindow = null;
+    }
+    
+    // Create the main window if it doesn't exist
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      console.log('Creating main window...');
+      mainWindow = await createWindow();
+      
+      if (!mainWindow) {
+        throw new Error('Failed to create main window');
+      }
+    } else {
+      // If main window exists but is minimized, restore it
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in handleSuccessfulAuth:', error);
+    // Show error to user
+    dialog.showErrorBox(
+      'Authentication Error',
+      'Failed to initialize the application after authentication. Please try again.'
+    );
+    return false;
   }
-  // proceed to create main window if not already present
-  if (!mainWindow) {
-    await createWindow()
-  }
-  return true
 }
 
 // 这行代码是解决 Windows 通知的标题和图标不正确的问题，标题会错误显示成 electron.app.Chatbox
@@ -376,104 +428,126 @@ if (isDebug) {
 // --------- 窗口管理 ---------
 
 async function createWindow() {
-  if (isDebug) {
-    // 不在安装 DEBUG 浏览器插件。可能不兼容，所以不如直接在网页里debug
-    // await installExtensions()
-  }
-
-  const [state] = windowState.getState()
-
-  mainWindow = new BrowserWindow({
-    show: false,
-    // remove the default titlebar
-    titleBarStyle: 'hidden',
-    // expose window controlls in Windows/Linux
-    ...(process.platform !== 'darwin'
-      ? {
-          titleBarOverlay: {
-            color: nativeTheme.shouldUseDarkColors ? '#282828' : 'white',
-            symbolColor: nativeTheme.shouldUseDarkColors ? 'white' : 'black',
-            height: 47,
-          },
-        }
-      : {}),
-    trafficLightPosition: { x: 10, y: 16 },
-
-    width: state.width,
-    height: state.height,
-    x: state.x,
-    y: state.y,
-    minWidth: windowState.minWidth,
-    minHeight: windowState.minHeight,
-    icon: getAssetPath('icon.png'),
-    webPreferences: {
-      spellcheck: true,
-      webSecurity: false, // 其中一个作用是解决跨域问题
-      allowRunningInsecureContent: false,
-      preload: app.isPackaged ? path.join(__dirname, 'preload.js') : path.join(__dirname, '../../.erb/dll/preload.js'),
-    },
-  })
-
-  mainWindow.loadURL(resolveHtmlPath('index.html'))
-
-  mainWindow.on('ready-to-show', () => {
-    if (!mainWindow) {
-      throw new Error('"mainWindow" is not defined')
+  try {
+    if (isDebug) {
+      // 不在安装 DEBUG 浏览器插件。可能不兼容，所以不如直接在网页里debug
+      // await installExtensions()
+      console.log('Running in development mode with debug features');
     }
-    if (process.env.START_MINIMIZED) {
-      mainWindow.minimize()
-    } else {
-      if (state.mode === windowState.WindowMode.Maximized) {
-        mainWindow.maximize()
-      }
-      if (state.mode === windowState.WindowMode.Fullscreen) {
-        mainWindow.setFullScreen(true)
-      }
-      mainWindow.show()
-    }
-  })
 
-  // 窗口关闭时保存窗口大小与位置
-  mainWindow.on('close', () => {
-    if (mainWindow) {
-      windowState.saveState(mainWindow)
-    }
-  })
+    const [state] = windowState.getState()
+    
+    console.log('Creating main browser window with state:', state);
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
-
-  const menuBuilder = new MenuBuilder(mainWindow)
-  menuBuilder.buildMenu()
-
-  // Open urls in the user's browser
-  mainWindow.webContents.setWindowOpenHandler((edata) => {
-    shell.openExternal(edata.url)
-    return { action: 'deny' }
-  })
-
-  // 隐藏 Windows, Linux 应用顶部的菜单栏
-  // https://www.computerhope.com/jargon/m/menubar.htm
-  mainWindow.setMenuBarVisibility(false)
-
-  // 网络问题
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        // 'Content-Security-Policy': ['default-src \'self\'']
-        // 'Content-Security-Policy': ['*'], // 为了支持代理
+    // Create the browser window with the saved state
+    mainWindow = new BrowserWindow({
+      show: false, // Don't show until we're ready
+      titleBarStyle: 'hidden',
+      // Expose window controls in Windows/Linux
+      ...(process.platform !== 'darwin' ? {
+        titleBarOverlay: {
+          color: nativeTheme.shouldUseDarkColors ? '#282828' : 'white',
+          symbolColor: nativeTheme.shouldUseDarkColors ? 'white' : 'black',
+          height: 47,
+        },
+      } : {}),
+      trafficLightPosition: { x: 10, y: 16 },
+      width: state.width || 1200,
+      height: state.height || 800,
+      x: state.x,
+      y: state.y,
+      minWidth: windowState.minWidth,
+      minHeight: windowState.minHeight,
+      icon: getAssetPath('icon.png'),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        spellcheck: true,
+        webSecurity: false, // Required for some features
+        allowRunningInsecureContent: false,
+        preload: app.isPackaged 
+          ? path.join(__dirname, 'preload.js') 
+          : path.join(__dirname, '../../.erb/dll/preload.js'),
       },
-    })
-  })
+    });
 
-  // 监听系统主题更新
-  nativeTheme.on('updated', () => {
-    mainWindow?.webContents.send('system-theme-updated')
-  })
+    // Load the index.html file
+    console.log('Loading main window URL...');
+    await mainWindow.loadURL(resolveHtmlPath('index.html'));
+    console.log('Main window URL loaded');
 
-  return mainWindow
+    // Set up window state handlers
+    mainWindow.once('ready-to-show', () => {
+      console.log('Main window ready to show');
+      
+      if (!mainWindow) {
+        console.error('Main window was destroyed before ready-to-show');
+        return;
+      }
+
+      // Apply window state
+      if (state.mode === windowState.WindowMode.Maximized) {
+        console.log('Maximizing window');
+        mainWindow.maximize();
+      } else if (state.mode === windowState.WindowMode.Fullscreen) {
+        console.log('Setting fullscreen');
+        mainWindow.setFullScreen(true);
+      }
+      
+      // Show the window
+      console.log('Showing main window');
+      mainWindow.show();
+      mainWindow.focus();
+      
+      // For development: Open the DevTools in development mode
+      if (isDebug) {
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+    });
+
+    // 窗口关闭时保存窗口大小与位置
+    mainWindow.on('close', () => {
+      if (mainWindow) {
+        windowState.saveState(mainWindow);
+      }
+    });
+
+    mainWindow.on('closed', () => {
+      mainWindow = null;
+    });
+
+    const menuBuilder = new MenuBuilder(mainWindow);
+    menuBuilder.buildMenu();
+
+    // Open URLs in the user's browser
+    mainWindow.webContents.setWindowOpenHandler((edata) => {
+      shell.openExternal(edata.url);
+      return { action: 'deny' };
+    });
+
+    // Hide menu bar on Windows/Linux
+    mainWindow.setMenuBarVisibility(false);
+
+    // Handle network requests
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': ["default-src 'self'"],
+        },
+      });
+    });
+
+    // Listen for system theme changes
+    nativeTheme.on('updated', () => {
+      mainWindow?.webContents.send('system-theme-updated');
+    });
+
+    return mainWindow;
+  } catch (error) {
+    console.error('Failed to create window:', error);
+    throw error;
+  }
 }
 
 async function showOrHideWindow() {
@@ -653,8 +727,8 @@ ipcMain.handle('ensureProxy', (event, json) => {
 })
 
 ipcMain.handle('relaunch', () => {
-  app.relaunch()
-  app.quit()
+  //app.relaunch()
+  //app.quit()
 })
 
 ipcMain.handle('analysticTrackingEvent', (event, dataJson) => {

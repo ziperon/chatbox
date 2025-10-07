@@ -245,30 +245,13 @@ function SidebarButtons(props: { sessionListRef: React.RefObject<HTMLDivElement>
         </Typography>
       </MenuItem>
 
-      {/* <MenuItem
-        onClick={() => {
-          navigate({
-            to: '/about',
-          })
-          if (isSmallScreen) {
-            setShowSidebar(false)
-          }
-        }}
-        selected={routerState.location.pathname === '/about'}
-        sx={{ padding: '0.2rem 0.1rem', margin: '0.1rem' }}
-      >
-        <ListItemIcon>
-          <IconButton>
-            <InfoOutlinedIcon fontSize="small" />
-          </IconButton>
-        </ListItemIcon>
+      
         <ListItemText>
           <Typography sx={{ opacity: 0.5 }}>
-            {t('About')}
-            {/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}
+            {/\d/.test(versionHook.version) ? `${versionHook.version}` : ''}
           </Typography>
         </ListItemText>
-      </MenuItem> */}
+         
     </MenuList>
   )
 }

@@ -138,50 +138,45 @@ async function ensureLdapAuth(): Promise<void> {
   await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
 }
 
-ipcMain.handle('ldap-authenticate', async (event, payload: { username: string; password: string }) => {
+// Import and initialize LDAP auth
+import { initLdapAuth } from './ldap-auth'
+initLdapAuth()
+
+// Listen for successful LDAP authentication
+ipcMain.on('ldap-auth-success', async () => {
   try {
-    const usernameRaw = (payload?.username || '').trim()
+    console.log('LDAP auth success, preparing main window...');
     
-    // Allow admin/admin in development mode
-    if (process.env.NODE_ENV === 'development' && usernameRaw === 'admin' && payload?.password === 'admin') {
-      return await handleSuccessfulAuth()
+    // Close the auth window if it exists
+    if (authWindow) {
+      authWindow.close();
+      authWindow = null;
     }
     
-    const password = payload?.password ?? ''
-    if (!usernameRaw || !password) {
-      return 'Username and password are required'
-    }
-
-    const url = 'ldaps://moscow-corp-ldaps.corp.vtbcapital.internal'
-
-    // Try multiple username formats if needed
-    const candidates: string[] = []
-    candidates.push(usernameRaw)
-    if (!usernameRaw.includes('@')) {
-      candidates.push(`${usernameRaw}@corp.vtbcapital.internal`)
-    }
-    if (!usernameRaw.includes('\\')) {
-      candidates.push(`CORP\\${usernameRaw}`)
-    }
-
-    let lastError: any = null
-    for (const bindDN of candidates) {
-      const client = new Client({ url, tlsOptions: { rejectUnauthorized: false } })
-      try {
-        await client.bind(bindDN, password)
-        await client.unbind().catch(() => {})
-        return await handleSuccessfulAuth()
-      } catch (e) {
-        lastError = e
-      } finally {
-        try { await (async () => client.unbind().catch(() => {}))() } catch {}
+    // Create the main window if it doesn't exist
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      console.log('Creating main window from ldap-auth-success...');
+      mainWindow = await createWindow();
+      
+      if (!mainWindow) {
+        throw new Error('Failed to create main window');
       }
+    } else {
+      // If main window exists but is minimized, restore it
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
     }
-    return (lastError && lastError.message) ? String(lastError.message) : 'Authentication failed'
-  } catch (err: any) {
-    return (err && err.message) ? String(err.message) : 'Authentication failed'
+  } catch (error) {
+    console.error('Error handling ldap-auth-success:', error);
+    dialog.showErrorBox(
+      'Window Error',
+      'Failed to open the main application window. Please try again.'
+    );
   }
-})
+});
 
 async function handleSuccessfulAuth(): Promise<boolean> {
   try {

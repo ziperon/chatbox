@@ -726,10 +726,6 @@ ipcMain.handle('relaunch', () => {
   //app.quit()
 })
 
-ipcMain.handle('analysticTrackingEvent', (event, dataJson) => {
-  const data = JSON.parse(dataJson)
-})
-
 ipcMain.handle('getConfig', (event) => {
   return getConfig()
 })

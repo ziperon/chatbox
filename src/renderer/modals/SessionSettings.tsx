@@ -38,7 +38,6 @@ import MaxContextMessageCountSlider from '@/components/MaxContextMessageCountSli
 import SegmentedControl from '@/components/SegmentedControl'
 import SliderWithInput from '@/components/SliderWithInput'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import { trackingEvent } from '@/packages/event'
 import { StorageKeyGenerator } from '@/storage/StoreStorage'
 import * as atoms from '@/stores/atoms'
 import * as sessionActions from '@/stores/sessionActions'
@@ -88,11 +87,6 @@ const SessionSettingsModal = NiceModal.create(
       )
     }
 
-    useEffect(() => {
-      if (session) {
-        trackingEvent('chat_config_window', { event_category: 'screen_view' })
-      }
-    }, [session])
 
     const onCancel = () => {
       if (session) {

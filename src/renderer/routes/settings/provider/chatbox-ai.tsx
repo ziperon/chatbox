@@ -34,7 +34,6 @@ import { Trans, useTranslation } from 'react-i18next'
 import { type ModelProvider, ModelProviderEnum } from 'src/shared/types'
 import useChatboxAIModels from '@/hooks/useChatboxAIModels'
 import { useProviderSettings, useSettings } from '@/hooks/useSettings'
-import { trackingEvent } from '@/packages/event'
 import { getLicenseDetailRealtime } from '@/packages/remote'
 import platform from '@/platform'
 import { languageAtom } from '@/stores/atoms'
@@ -179,7 +178,6 @@ function RouteComponent() {
                     await premiumActions.deactivate()
                     setLicenseKey('')
                     setIsDeactivating(false)
-                    trackingEvent('click_deactivate_license_button', { event_category: 'user' })
                   }}
                 >
                   {t('Deactivate')}
@@ -321,7 +319,6 @@ function RouteComponent() {
                   flex={1}
                   onClick={() => {
                     platform.openLink(`https://chatboxai.app/redirect_app/manage_license/${language}`)
-                    trackingEvent('click_manage_license_button', { event_category: 'user' })
                   }}
                 >
                   {t('Manage License and Devices')}
@@ -331,7 +328,6 @@ function RouteComponent() {
                   flex={1}
                   onClick={() => {
                     platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
-                    trackingEvent('click_view_more_plans_button', { event_category: 'user' })
                   }}
                 >
                   {t('View More Plans')}
@@ -371,7 +367,6 @@ function RouteComponent() {
                   flex={1}
                   onClick={() => {
                     platform.openLink(`https://chatboxai.app/redirect_app/get_license`)
-                    trackingEvent('click_get_license_button', { event_category: 'user' })
                   }}
                 >
                   {t('Get License')}
@@ -381,7 +376,6 @@ function RouteComponent() {
                   flex={1}
                   onClick={() => {
                     platform.openLink(`https://chatboxai.app/redirect_app/manage_license/${language}`)
-                    trackingEvent('click_retrieve_license_button', { event_category: 'user' })
                   }}
                 >
                   {t('Retrieve License')}

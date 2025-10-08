@@ -1,7 +1,58 @@
-export const officeExts = ['.pdf', '.docx', '.pptx', '.xlsx', '.odt', '.odp', '.ods']
+// Office document extensions
+export const officeExts = [
+  // Microsoft Office
+  '.doc', '.docx', '.docm', '.dotx', '.dotm',  // Word
+  '.xls', '.xlsx', '.xlsm', '.xlsb', '.xltx', '.xltm', '.xlam',  // Excel
+  '.ppt', '.pptx', '.pptm', '.potx', '.potm', '.ppam',  // PowerPoint
+  
+  // OpenDocument Format
+  '.odt', '.ott',  // Text
+  '.ods', '.ots',  // Spreadsheet
+  '.odp', '.otp',  // Presentation
+  '.odg', '.otg',  // Graphics
+  '.odf',  // Formula
+  
+  // Legacy and other office formats
+  '.rtf',  // Rich Text Format
+  '.pdf',  // PDF (handled by officeparser)
+  '.txt',  // Plain text
+  
+  // Apple iWork
+  '.pages', '.numbers', '.key',
+  
+  // Other
+  '.wps',  // Kingsoft Office
+  '.et', '.dps',  // WPS Office
+  '.csv',  // Comma Separated Values
+  '.tsv',  // Tab Separated Values
+]
 
-export function isOfficeFilePath(filePath: string) {
-  return officeExts.some((ext) => filePath.toLowerCase().endsWith(ext))
+// Get file extension in lowercase with dot (e.g., '.docx')
+function getFileExtension(filePath: string): string {
+  const lastDot = filePath.lastIndexOf('.')
+  return lastDot === -1 ? '' : filePath.slice(lastDot).toLowerCase()
+}
+
+export function isOfficeFilePath(filePath: string): boolean {
+  if (!filePath) return false
+  const ext = getFileExtension(filePath)
+  return officeExts.includes(ext)
+}
+
+// More specific file type checkers
+export function isWordFile(filePath: string): boolean {
+  const ext = getFileExtension(filePath)
+  return ['.doc', '.docx', '.docm', '.dotx', '.dotm', '.odt', '.ott', '.rtf', '.wps', '.pages'].includes(ext)
+}
+
+export function isExcelFile(filePath: string): boolean {
+  const ext = getFileExtension(filePath)
+  return ['.xls', '.xlsx', '.xlsm', '.xlsb', '.xltx', '.xltm', '.xlam', '.ods', '.ots', '.csv', '.tsv', '.et', '.numbers'].includes(ext)
+}
+
+export function isPowerPointFile(filePath: string): boolean {
+  const ext = getFileExtension(filePath)
+  return ['.ppt', '.pptx', '.pptm', '.potx', '.potm', '.ppam', '.odp', '.otp', '.dps', '.key'].includes(ext)
 }
 
 export const textExts = [

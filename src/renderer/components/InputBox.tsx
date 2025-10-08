@@ -27,7 +27,6 @@ import { useMessageInput } from '@/hooks/useMessageInput'
 import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { cn } from '@/lib/utils'
-import { trackingEvent } from '@/packages/event'
 import * as picUtils from '@/packages/pic_utils'
 import platform from '@/platform'
 import storage from '@/storage'
@@ -232,7 +231,6 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
         }
 
         await onSubmit?.(params)
-        trackingEvent('send_message', { event_category: 'user' })
       } catch (e) {
         console.error('Error submitting message:', e)
         toastActions.add((e as Error)?.message || t('An error occurred while sending the message.'))

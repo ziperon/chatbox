@@ -2,7 +2,6 @@ import NiceModal, { muiDialogV5, useModal } from '@ebay/nice-modal-react'
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Input } from '@mui/material'
 import { type ChangeEvent, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { trackingEvent } from '@/packages/event'
 import * as sessionActions from '../stores/sessionActions'
 
 const ClearSessionList = NiceModal.create(() => {
@@ -16,13 +15,9 @@ const ClearSessionList = NiceModal.create(() => {
     }
   }
 
-  useEffect(() => {
-    trackingEvent('clear_conversation_list_window', { event_category: 'screen_view' })
-  }, [])
 
   const clean = () => {
     sessionActions.clearConversationList(value)
-    trackingEvent('clear_conversation_list', { event_category: 'user' })
     handleClose()
   }
 

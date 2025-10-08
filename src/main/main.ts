@@ -107,6 +107,16 @@ async function ensureLdapAuth(): Promise<void> {
       <div class="err" id="e"></div>
     </div>
     <script>
+      // Load the last username when the page loads
+      window.electronAPI.invoke('get-last-username').then(username => {
+        if (username) {
+          const u = document.getElementById('u');
+          if (u) u.value = username;
+          // Focus password field if username is already filled
+          const p = document.getElementById('p');
+          if (p) p.focus();
+        }
+      });
       const $ = (id) => document.getElementById(id);
       const btn = $('b');
       const u = $('u');
@@ -116,7 +126,12 @@ async function ensureLdapAuth(): Promise<void> {
         e.textContent = '';
         btn.disabled = true;
         try {
-          const ok = await window.electronAPI.invoke('ldap-authenticate', { username: u.value || '', password: p.value || '' });
+          const username = u.value.trim();
+          // Save the username when attempting to log in
+          if (username) {
+            await window.electronAPI.invoke('set-last-username', username);
+          }
+          const ok = await window.electronAPI.invoke('ldap-authenticate', { username: username, password: p.value || '' });
           if (ok === true) {
             // success; main process will close this window
           } else {
@@ -135,12 +150,34 @@ async function ensureLdapAuth(): Promise<void> {
   </body>
   </html>`
 
-  await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+  await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  
+  // Add handler for setting the last username
+  ipcMain.handle('set-last-username', async (event, username: string) => {
+    if (username) {
+      store.set('last_username', username);
+      await setStoreBlob('last_username', username);
+    }
+    return true;
+  });
 }
 
 // Import and initialize LDAP auth
 import { initLdapAuth } from './ldap-auth'
 initLdapAuth()
+
+// Handle getting the last username
+ipcMain.handle('get-last-username', async () => {
+  return store.get('last_username', '');
+});
+
+// Handle setting the last username
+ipcMain.handle('set-last-username', async (event, username: string) => {
+  if (username) {
+    store.set('last_username', username);
+  }
+  return true;
+});
 
 // Listen for successful LDAP authentication
 ipcMain.on('ldap-auth-success', async () => {

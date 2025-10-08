@@ -152,18 +152,13 @@ export function getDefaultPrompt() {
 
 export function chatSessionSettings(): SessionSettings {
   return {
-    provider: ModelProviderEnum.ChatboxAI,
-    modelId: 'chatboxai-4',
-    maxContextMessageCount: 6,
+    
   }
 }
 
 export function pictureSessionSettings(): SessionSettings {
   return {
-    provider: ModelProviderEnum.ChatboxAI,
-    modelId: 'DALL-E-3',
-    imageGenerateNum: 3,
-    dalleStyle: 'vivid',
+    
   }
 }
 

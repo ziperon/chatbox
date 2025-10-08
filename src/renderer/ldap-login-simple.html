@@ -117,10 +117,35 @@
       return window && window.process && window.process.type;
     }
 
+    // Function to load the last used username
+    async function loadLastUsername() {
+      try {
+        if (window.electron && window.electron.ipcRenderer) {
+          const lastUsername = await window.electron.ipcRenderer.invoke('get-last-username');
+          if (lastUsername) {
+            const usernameInput = document.getElementById('username');
+            if (usernameInput) {
+              usernameInput.value = lastUsername;
+              // Focus the password field if username is already filled
+              const passwordInput = document.getElementById('password');
+              if (passwordInput) {
+                passwordInput.focus();
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading last username:', error);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       debugLog('DOM Content Loaded');
       
       const usernameInput = document.getElementById('username');
+      
+      // Load the last used username
+      loadLastUsername();
       const passwordInput = document.getElementById('password');
       const loginButton = document.getElementById('login-button');
       const errorMessage = document.getElementById('error-message');

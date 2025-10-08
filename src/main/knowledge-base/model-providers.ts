@@ -80,7 +80,7 @@ export async function getEmbeddingProvider(kbId: number) {
         const providerSettings = modelSettings?.providers?.[providerId]
         const apiHost = typeof providerSettings === 'object' && providerSettings !== null && 'apiHost' in providerSettings
           ? providerSettings.apiHost
-          : 'http://127.0.0.1:11434'
+          : 'hhttp://llm:11435'
           
         return {
           ...embModel,

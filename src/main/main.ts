@@ -191,14 +191,14 @@ ipcMain.on('ldap-auth-success', async () => {
     }
     
     // Create the main window if it doesn't exist
-    if (!mainWindow || mainWindow.isDestroyed()) {
+      ensureTray();
       console.log('Creating main window from ldap-auth-success...');
       mainWindow = await createWindow();
       
       if (!mainWindow) {
         throw new Error('Failed to create main window');
       }
-    } else {
+   
       // If main window exists but is minimized, restore it
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
@@ -206,7 +206,7 @@ ipcMain.on('ldap-auth-success', async () => {
       mainWindow.show();
       mainWindow.focus();
     }
-  } catch (error) {
+  catch (error) {
     console.error('Error handling ldap-auth-success:', error);
     dialog.showErrorBox(
       'Window Error',
@@ -231,10 +231,10 @@ async function handleSuccessfulAuth(): Promise<boolean> {
     });
     
     // Close the auth window if it exists
-    if (authWindow) {
-      authWindow.close();
-      authWindow = null;
-    }
+    // if (authWindow) {
+    //   authWindow.close();
+    //   authWindow = null;
+    // }
     
     // Create the main window if it doesn't exist
     if (!mainWindow || mainWindow.isDestroyed()) {

@@ -9,9 +9,6 @@ files:
 
 afterSign: .erb/scripts/notarize.js
 
-# releaseInfo:
-#   releaseNotes: See the changelog for details
-
 mac:
   notarize: false
   category: public.app-category.developer-tools
@@ -41,6 +38,10 @@ win:
       arch:
         - x64
         - arm64
+    - target: msi
+      arch:
+        - x64
+        - arm64
   verifyUpdateCodeSignature: false
   artifactName: ${productName}-${version}-Setup.${ext}
   sign: ./custom_win_sign.js
@@ -51,6 +52,14 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   include: assets/installer.nsh
+
+msi:
+  perMachine: false          # Установка только для текущего пользователя (true — для всех)
+  oneClick: false            # Аналог oneClick как в NSIS
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Chatbox
+  artifactName: ${productName}-${version}-Setup.${ext}
 
 linux:
   target:

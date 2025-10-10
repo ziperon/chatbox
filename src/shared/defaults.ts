@@ -152,18 +152,13 @@ export function getDefaultPrompt() {
 
 export function chatSessionSettings(): SessionSettings {
   return {
-    provider: ModelProviderEnum.ChatboxAI,
-    modelId: 'chatboxai-4',
-    maxContextMessageCount: 6,
+    
   }
 }
 
 export function pictureSessionSettings(): SessionSettings {
   return {
-    provider: ModelProviderEnum.ChatboxAI,
-    modelId: 'DALL-E-3',
-    imageGenerateNum: 3,
-    dalleStyle: 'vivid',
+    
   }
 }
 
@@ -353,8 +348,8 @@ export const SystemProviders: ProviderBaseInfo[] = [
     name: 'Ollama',
     type: ModelProviderType.OpenAI,
     defaultSettings: {
-      apiHost: 'http://127.0.0.1:11434',
-      //apiHost: 'http://llm:11435',
+      //apiHost: 'http://127.0.0.1:11434',
+      apiHost: 'http://llm:11435',
     },
   },
   // {

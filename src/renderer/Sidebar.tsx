@@ -27,7 +27,6 @@ import useNeedRoomForMacWinControls from './hooks/useNeedRoomForWinControls'
 import { useIsSmallScreen, useSidebarWidth } from './hooks/useScreenChange'
 import useVersion from './hooks/useVersion'
 import { cn } from './lib/utils'
-import { trackingEvent } from './packages/event'
 import icon from './static/icon.png'
 import * as atoms from './stores/atoms'
 import * as sessionActions from './stores/sessionActions'
@@ -141,7 +140,6 @@ function SidebarButtons(props: { sessionListRef: React.RefObject<HTMLDivElement>
     if (isSmallScreen) {
       setShowSidebar(false)
     }
-    trackingEvent('create_new_conversation', { event_category: 'user' })
   }, [navigate, setShowSidebar, isSmallScreen])
 
   const handleCreateNewPictureSession = () => {
@@ -152,7 +150,6 @@ function SidebarButtons(props: { sessionListRef: React.RefObject<HTMLDivElement>
     if (isSmallScreen) {
       setShowSidebar(false)
     }
-    trackingEvent('create_new_picture_conversation', { event_category: 'user' })
   }
 
   return (

@@ -4,6 +4,7 @@ const log = getLogger('GlobalErrorHandler')
 
 // Global error handler for unhandled errors
 window.addEventListener('error', (event) => {
+  log.error(event)
   log.error('Global error caught:', event.error)
 })
 

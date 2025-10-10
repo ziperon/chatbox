@@ -4,7 +4,6 @@ import { useNavigate } from '@tanstack/react-router'
 import { useSetAtom } from 'jotai'
 import type React from 'react'
 import { Trans } from 'react-i18next'
-import { trackingEvent } from '@/packages/event'
 import platform from '@/platform'
 import { aiProviderNameHash } from '../../shared/models'
 import { ChatboxAIAPIError } from '../../shared/models/errors'
@@ -142,9 +141,6 @@ export default function MessageErrTips(props: { msg: Message }) {
                 className="cursor-pointer italic"
                 onClick={() => {
                   platform.openLink('https://chatboxai.app/redirect_app/view_more_plans')
-                  trackingEvent('click_view_more_plans_button_from_upgrade_error_tips', {
-                    event_category: 'user',
-                  })
                 }}
               ></Link>
             ),

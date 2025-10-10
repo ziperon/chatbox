@@ -20,22 +20,38 @@ async function getLdapClient() {
 
 // Handle successful authentication
 async function handleSuccessfulAuth(): Promise<boolean> {
-  try {
-    console.log('Authentication successful, setting up session...');
-    
-    // Save the authentication state
-    store.set('ldap_auth', {
-      authenticated: true,
-      timestamp: Date.now(),
-      username: 'user',
-      displayName: 'User'
-    });
-    
-    return true;
-  } catch (error) {
-    console.error('Error in handleSuccessfulAuth:', error);
-    return false;
-  }
+  return new Promise((resolve) => {
+    try {
+      console.log('Authentication successful, setting up session...');
+      
+      // Save the authentication state
+      store.set('ldap_auth', {
+        authenticated: true,
+        timestamp: Date.now(),
+        username: 'user',
+        displayName: 'User'
+      });
+      
+      // Emit an event to notify that authentication was successful
+      // The main process will handle window creation when it's ready
+      if (require('electron').app.isReady()) {
+        // If app is already ready, import and call the main window handler
+        const { ipcMain } = require('electron');
+        ipcMain.emit('ldap-auth-success');
+      } else {
+        // If app is not ready yet, wait for it
+        require('electron').app.on('ready', () => {
+          const { ipcMain } = require('electron');
+          ipcMain.emit('ldap-auth-success');
+        });
+      }
+      
+      resolve(true);
+    } catch (error) {
+      console.error('Error in handleSuccessfulAuth:', error);
+      resolve(false);
+    }
+  });
 }
 
 // Initialize LDAP authentication
@@ -84,7 +100,7 @@ export function initLdapAuth() {
           
           try {
             await client.bind(bindDN, password);
-            await client.unbind().catch(() => {});
+            await client.unbind().catch((event) => { console.log(event); });
             return await handleSuccessfulAuth();
           } catch (e) {
             lastError = e;

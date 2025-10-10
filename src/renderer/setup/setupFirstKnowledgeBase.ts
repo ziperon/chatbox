@@ -19,13 +19,13 @@ export async function setupFirstKnowledgeBase() {
       console.log('Creating default knowledge base...')
       
       // Get the first available embedding model
-      const embeddingModel = 'Ollama | Qwen3-Embedding-8B:latest' // Default model
+      const embeddingModel = 'ollama:Qwen3-Embedding-8B:latest' // Default model
       const rerankModel = '' // Default to no rerank model
-      const visionModel = 'Ollama | qwen2_5_3b_ocr_100s:latest' // Default to no vision model
+      const visionModel = 'ollama:qwen2_5_3b_ocr_100s:latest' // Default to no vision model
 
       // Create the default knowledge base
       await knowledgeBaseController.create({
-        name: t('База знаний общая'),
+        name: t('База знаний'),
         embeddingModel,
         rerankModel,
         visionModel

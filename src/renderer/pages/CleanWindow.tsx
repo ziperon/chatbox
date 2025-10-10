@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import * as atoms from '../stores/atoms'
 import { useAtom } from 'jotai'
 import * as sessionActions from '../stores/sessionActions'
-import { trackingEvent } from '@/packages/event'
 
 interface Props {}
 
@@ -22,7 +21,6 @@ export default function CleanWindow(props: Props) {
       msg?.cancel?.()
     })
     sessionActions.clear(sessionClean.id)
-    trackingEvent('clear_conversation', { event_category: 'user' })
     close()
   }
   return (

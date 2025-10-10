@@ -107,6 +107,16 @@ async function ensureLdapAuth(): Promise<void> {
       <div class="err" id="e"></div>
     </div>
     <script>
+      // Load the last username when the page loads
+      window.electronAPI.invoke('get-last-username').then(username => {
+        if (username) {
+          const u = document.getElementById('u');
+          if (u) u.value = username;
+          // Focus password field if username is already filled
+          const p = document.getElementById('p');
+          if (p) p.focus();
+        }
+      });
       const $ = (id) => document.getElementById(id);
       const btn = $('b');
       const u = $('u');
@@ -116,7 +126,12 @@ async function ensureLdapAuth(): Promise<void> {
         e.textContent = '';
         btn.disabled = true;
         try {
-          const ok = await window.electronAPI.invoke('ldap-authenticate', { username: u.value || '', password: p.value || '' });
+          const username = u.value.trim();
+          // Save the username when attempting to log in
+          if (username) {
+            await window.electronAPI.invoke('set-last-username', username);
+          }
+          const ok = await window.electronAPI.invoke('ldap-authenticate', { username: username, password: p.value || '' });
           if (ok === true) {
             // success; main process will close this window
           } else {
@@ -135,53 +150,70 @@ async function ensureLdapAuth(): Promise<void> {
   </body>
   </html>`
 
-  await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+  await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  
+  // Add handler for setting the last username
+  ipcMain.handle('set-last-username', async (event, username: string) => {
+    if (username) {
+      store.set('last_username', username);
+      await setStoreBlob('last_username', username);
+    }
+    return true;
+  });
 }
 
-ipcMain.handle('ldap-authenticate', async (event, payload: { username: string; password: string }) => {
-  try {
-    const usernameRaw = (payload?.username || '').trim()
-    
-    // Allow admin/admin in development mode
-    if (process.env.NODE_ENV === 'development' && usernameRaw === 'admin' && payload?.password === 'admin') {
-      return await handleSuccessfulAuth()
-    }
-    
-    const password = payload?.password ?? ''
-    if (!usernameRaw || !password) {
-      return 'Username and password are required'
-    }
+// Import and initialize LDAP auth
+import { initLdapAuth } from './ldap-auth'
+initLdapAuth()
 
-    const url = 'ldaps://moscow-corp-ldaps.corp.vtbcapital.internal'
+// Handle getting the last username
+ipcMain.handle('get-last-username', async () => {
+  return store.get('last_username', '');
+});
 
-    // Try multiple username formats if needed
-    const candidates: string[] = []
-    candidates.push(usernameRaw)
-    if (!usernameRaw.includes('@')) {
-      candidates.push(`${usernameRaw}@corp.vtbcapital.internal`)
-    }
-    if (!usernameRaw.includes('\\')) {
-      candidates.push(`CORP\\${usernameRaw}`)
-    }
-
-    let lastError: any = null
-    for (const bindDN of candidates) {
-      const client = new Client({ url, tlsOptions: { rejectUnauthorized: false } })
-      try {
-        await client.bind(bindDN, password)
-        await client.unbind().catch(() => {})
-        return await handleSuccessfulAuth()
-      } catch (e) {
-        lastError = e
-      } finally {
-        try { await (async () => client.unbind().catch(() => {}))() } catch {}
-      }
-    }
-    return (lastError && lastError.message) ? String(lastError.message) : 'Authentication failed'
-  } catch (err: any) {
-    return (err && err.message) ? String(err.message) : 'Authentication failed'
+// Handle setting the last username
+ipcMain.handle('set-last-username', async (event, username: string) => {
+  if (username) {
+    store.set('last_username', username);
   }
-})
+  return true;
+});
+
+// Listen for successful LDAP authentication
+ipcMain.on('ldap-auth-success', async () => {
+  try {
+    console.log('LDAP auth success, preparing main window...');
+    
+    // Close the auth window if it exists
+    if (authWindow) {
+      authWindow.close();
+      authWindow = null;
+    }
+    
+    // Create the main window if it doesn't exist
+      ensureTray();
+      console.log('Creating main window from ldap-auth-success...');
+      mainWindow = await createWindow();
+      
+      if (!mainWindow) {
+        throw new Error('Failed to create main window');
+      }
+   
+      // If main window exists but is minimized, restore it
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  catch (error) {
+    console.error('Error handling ldap-auth-success:', error);
+    dialog.showErrorBox(
+      'Window Error',
+      'Failed to open the main application window. Please try again.'
+    );
+  }
+});
 
 async function handleSuccessfulAuth(): Promise<boolean> {
   try {
@@ -199,10 +231,10 @@ async function handleSuccessfulAuth(): Promise<boolean> {
     });
     
     // Close the auth window if it exists
-    if (authWindow) {
-      authWindow.close();
-      authWindow = null;
-    }
+    // if (authWindow) {
+    //   authWindow.close();
+    //   authWindow = null;
+    // }
     
     // Create the main window if it doesn't exist
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -729,10 +761,6 @@ ipcMain.handle('ensureProxy', (event, json) => {
 ipcMain.handle('relaunch', () => {
   //app.relaunch()
   //app.quit()
-})
-
-ipcMain.handle('analysticTrackingEvent', (event, dataJson) => {
-  const data = JSON.parse(dataJson)
 })
 
 ipcMain.handle('getConfig', (event) => {

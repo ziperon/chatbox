@@ -151,7 +151,7 @@ async function ensureLdapAuth(): Promise<void> {
   </html>`
 
   await authWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-  
+
   // Add handler for setting the last username
   ipcMain.handle('set-last-username', async (event, username: string) => {
     if (username) {
@@ -183,29 +183,29 @@ ipcMain.handle('set-last-username', async (event, username: string) => {
 ipcMain.on('ldap-auth-success', async () => {
   try {
     console.log('LDAP auth success, preparing main window...');
-    
+
     // Close the auth window if it exists
     if (authWindow) {
       authWindow.close();
       authWindow = null;
     }
-    
+
     // Create the main window if it doesn't exist
-      ensureTray();
-      console.log('Creating main window from ldap-auth-success...');
-      mainWindow = await createWindow();
-      
-      if (!mainWindow) {
-        throw new Error('Failed to create main window');
-      }
-   
-      // If main window exists but is minimized, restore it
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.show();
-      mainWindow.focus();
+    ensureTray();
+    console.log('Creating main window from ldap-auth-success...');
+    mainWindow = await createWindow();
+
+    if (!mainWindow) {
+      throw new Error('Failed to create main window');
     }
+
+    // If main window exists but is minimized, restore it
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  }
   catch (error) {
     console.error('Error handling ldap-auth-success:', error);
     dialog.showErrorBox(
@@ -218,10 +218,10 @@ ipcMain.on('ldap-auth-success', async () => {
 async function handleSuccessfulAuth(): Promise<boolean> {
   try {
     console.log('Authentication successful, setting up session...')
-    
+
     // Set authentication state
     isAuthenticated = true;
-    
+
     // Save the authentication state
     store.set('ldap_auth', {
       authenticated: true,
@@ -229,15 +229,15 @@ async function handleSuccessfulAuth(): Promise<boolean> {
       username: 'user',
       displayName: 'User'
     });
-    
+
     // Close the auth window if it exists
     // if (authWindow) {
     //   authWindow.close();
     //   authWindow = null;
     // }
-    
+
     showWindow();
-    
+
     return true;
   } catch (error) {
     console.error('Error in handleSuccessfulAuth:', error);
@@ -280,22 +280,23 @@ let isAuthenticated = false
 let tray: Tray | null = null
 
 async function showWindow() {
-   // Create the main window if it doesn't exist
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      console.log('Creating main window...');
-      mainWindow = await createWindow();
-      
-      if (!mainWindow) {
-        throw new Error('Failed to create main window');
-      }
-    } else {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore()
-      }
-      mainWindow.show()
-      mainWindow.focus()
+  mainWindow?.destroy();
+  // Create the main window if it doesn't exist
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    console.log('Creating main window...');
+    mainWindow = await createWindow();
+
+    if (!mainWindow) {
+      throw new Error('Failed to create main window');
     }
-  
+  } else {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+    mainWindow.show() 
+    mainWindow.focus()
+  }
+
 }
 
 // --------- 快捷键 ---------
@@ -472,7 +473,7 @@ async function createWindow() {
     }
 
     const [state] = windowState.getState()
-    
+
     console.log('Creating main browser window with state:', state);
 
     // Create the browser window with the saved state
@@ -501,8 +502,8 @@ async function createWindow() {
         spellcheck: true,
         webSecurity: false, // Required for some features
         allowRunningInsecureContent: false,
-        preload: app.isPackaged 
-          ? path.join(__dirname, 'preload.js') 
+        preload: app.isPackaged
+          ? path.join(__dirname, 'preload.js')
           : path.join(__dirname, '../../.erb/dll/preload.js'),
       },
     });
@@ -515,7 +516,7 @@ async function createWindow() {
     // Set up window state handlers
     mainWindow.once('ready-to-show', () => {
       console.log('Main window ready to show');
-      
+
       if (!mainWindow) {
         console.error('Main window was destroyed before ready-to-show');
         return;
@@ -529,12 +530,12 @@ async function createWindow() {
         console.log('Setting fullscreen');
         mainWindow.setFullScreen(true);
       }
-      
+
       // Show the window
       console.log('Showing main window');
       mainWindow.show();
       mainWindow.focus();
-      
+
       // For development: Open the DevTools in development mode
       if (isDebug) {
         mainWindow.webContents.openDevTools({ mode: 'detach' });

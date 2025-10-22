@@ -6,6 +6,7 @@ export async function getOllamaEmbedding(
   const vectors: number[][] = [];
 
   for (const text of input) {
+    console.log("Embedding model: "+ model)
     const resp = await fetch(`${apiHost}/api/embed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

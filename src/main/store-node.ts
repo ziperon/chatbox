@@ -180,7 +180,6 @@ export function getSettings(): Settings {
   var settings = store.get<'settings'>('settings', defaults.settings())
   settings.enableAuth = defaultSettings.enableAuth ?? true
   settings.defaultChatModel = defaultSettings.defaultChatModel
-  settings.sistem = defaultSettings.ollamaHost
   return settings
 }
 

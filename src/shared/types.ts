@@ -316,6 +316,7 @@ export enum ModelProviderType {
   OpenAI = 'openai',
   Gemini = 'gemini',
   Claude = 'claude',
+  Ollama = 'ollama',
 }
 
 export type ModelMeta = {

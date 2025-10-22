@@ -21,10 +21,11 @@ export async function setupFirstKnowledgeBase() {
       console.log('Creating default knowledge base...')
       
       // Use canonical provider:modelId format
-      const embeddingModel = 'ollama:Qwen3-Embedding-8B:latest'
+      const embeddingModel = 'ollama:dengcao/Qwen3-Embedding-4B:Q8_0'
       const rerankModel = '' // Default to no rerank model
       const visionModel = 'ollama:qwen2_5_3b_ocr_100s:latest' // Default to no vision model
 
+      console.log('Creating default knowledge base with models:', embeddingModel, rerankModel, visionModel)
       // Create the default knowledge base if missing
       await knowledgeBaseController.create({
         name: defaultName,

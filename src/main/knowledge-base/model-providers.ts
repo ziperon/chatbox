@@ -6,6 +6,7 @@ import { cache } from '../cache'
 import { getConfig, getSettings, store } from '../store-node'
 import { getLogger } from '../util'
 import { getDatabase } from './db'
+import * as defaults from '../../shared/defaults'
 
 const log = getLogger('knowledge-base:model-providers')
 
@@ -46,7 +47,7 @@ export async function getEmbeddingProvider(kbId: number) {
         }
 
         let embeddingModel = (rs.rows[0].embedding_model as string) || ''
-
+        console.log("Embedding model: "+ embeddingModel)
         // Provide sensible defaults: prefer Ollama nomic-embed-text
         if (!embeddingModel || typeof embeddingModel !== 'string') {
           embeddingModel = 'ollama:nomic-embed-text:latest'
@@ -79,19 +80,20 @@ export async function getEmbeddingProvider(kbId: number) {
         }
         const providerId = embeddingModel.slice(0, sepIdx)
         const modelId = embeddingModel.slice(sepIdx + 1)
-
+        console.log("Embedding model: "+ embeddingModel)
+        console.log("Provider ID: "+ providerId)
+        console.log("Model ID: "+ modelId)
         const modelSettings = getMergedSettings(providerId, modelId)
         const model = getModel(modelSettings, getConfig(), await createModelDependencies())
+        console.log("Model: "+ modelSettings.modelId)
         // Access text embedding model and attach modelId so downstream can retrieve it (used by file-loaders getOllamaEmbedding)
         const embModel = (model as any).getTextEmbeddingModel({})
+        console.debug(embModel)
         ;(embModel as any).modelId = modelId
         
         // Get API host from provider settings if available
-        const providerSettings = modelSettings?.providers?.[providerId]
-        const apiHost = typeof providerSettings === 'object' && providerSettings !== null && 'apiHost' in providerSettings
-          ? providerSettings.apiHost
-          : 'http://llm:11435'
-          
+        const apiHost = defaults.SystemProviders.find((p)=>p.name === 'Ollama')?.defaultSettings?.apiHost
+        console.debug("Embedding host: "+ apiHost)
         return {
           ...embModel,
           modelId,

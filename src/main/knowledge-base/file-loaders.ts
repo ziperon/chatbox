@@ -145,7 +145,7 @@ export async function processFileWithMastra(
     const indexName = `kb_${kbId}`
     const BATCH_SIZE = 100 // Process chunks in batches of 50
 
-    console.log(embeddingInstance);
+    console.log("Embedding instance: "+ embeddingInstance.modelId)
     // Ensure vector index exists by getting dimension from first remaining chunk
     const firstEmbeddingArray = await getOllamaEmbedding(
       [`filename: ${fileMeta.filename}\nchunk:\n${remainingChunks[0].text}`],

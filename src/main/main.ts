@@ -236,22 +236,7 @@ async function handleSuccessfulAuth(): Promise<boolean> {
     //   authWindow = null;
     // }
     
-    // Create the main window if it doesn't exist
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      console.log('Creating main window...');
-      mainWindow = await createWindow();
-      
-      if (!mainWindow) {
-        throw new Error('Failed to create main window');
-      }
-    } else {
-      // If main window exists but is minimized, restore it
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    showWindow();
     
     return true;
   } catch (error) {
@@ -293,6 +278,25 @@ let mainWindow: BrowserWindow | null = null
 let authWindow: BrowserWindow | null = null
 let isAuthenticated = false
 let tray: Tray | null = null
+
+async function showWindow() {
+   // Create the main window if it doesn't exist
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      console.log('Creating main window...');
+      mainWindow = await createWindow();
+      
+      if (!mainWindow) {
+        throw new Error('Failed to create main window');
+      }
+    } else {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  
+}
 
 // --------- 快捷键 ---------
 
@@ -635,8 +639,18 @@ if (!gotTheLock) {
   app
     .whenReady()
     .then(async () => {
-      // Show auth window first; main window is created after successful auth
-      await ensureLdapAuth()
+      // Check settings to determine whether to enforce authentication
+      const settings = getSettings()
+      const enableAuth = settings?.enableAuth
+      console.log(enableAuth)
+      if (enableAuth) {
+        // Show auth window first; main window is created after successful auth
+        await ensureLdapAuth()
+      } else {
+        // Skip auth and open main window directly
+        isAuthenticated = true
+        await showOrHideWindow()
+      }
       ensureTray()
       // Remove this if your app does not use auto updates
       // eslint-disable-next-line

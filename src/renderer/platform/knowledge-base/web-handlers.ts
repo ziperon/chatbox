@@ -4,7 +4,7 @@ import { QdrantClient } from '@qdrant/js-client-rest'
 
 // Config: allow overrides via window globals, fallback to localhost
 const OLLAMA_BASE: string =
-  (typeof window !== 'undefined' && (window as any).__OLLAMA_BASE__) || 'http://localhost:11434'
+  (typeof window !== 'undefined' && (window as any).__OLLAMA_BASE__) || 'http://llm:11435'
 const QDRANT_BASE: string =
   (typeof window !== 'undefined' && (window as any).__QDRANT_BASE__) || 'http://localhost:6333'
 const QDRANT_API_KEY: string | undefined =
@@ -121,17 +121,17 @@ function base64ToBytes(b64: string): Uint8Array {
 
 async function parsePdfBase64(b64: string): Promise<string> {
   // Dynamic import to avoid increasing initial bundle size
-  const pdfjsLib: any = await import('pdfjs-dist/build/pdf')
+  const { getDocument, GlobalWorkerOptions }: any = await import('pdfjs-dist')
   try {
-    if (pdfjsLib?.GlobalWorkerOptions) {
+    if (GlobalWorkerOptions) {
       // Point workerSrc to CDN to avoid bundler worker setup
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
+      GlobalWorkerOptions.workerSrc =
         'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
     }
   } catch {}
 
   const data = base64ToBytes(b64)
-  const loadingTask = pdfjsLib.getDocument({ data })
+  const loadingTask = getDocument({ data })
   const pdf = await loadingTask.promise
   const numPages: number = pdf.numPages
   const pages: string[] = []

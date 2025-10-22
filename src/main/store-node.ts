@@ -67,7 +67,7 @@ function updateProviderConfigs(currentSettings: Settings): Settings {
         apiKey: updatedSettings.providers[providerId]?.apiKey,
         apiHost: updatedSettings.providers[providerId]?.apiHost,
         // 保留现有的模型配置
-        models: existingModels?.length ? existingModels : defaultProviderConfig.models
+        models: defaultProviderConfig.models
       } : {})
     }
     
@@ -176,7 +176,11 @@ async function autoBackup() {
 }
 
 export function getSettings(): Settings {
-  const settings = store.get<'settings'>('settings', defaults.settings())
+  const defaultSettings = defaults.settings();
+  var settings = store.get<'settings'>('settings', defaults.settings())
+  settings.enableAuth = defaultSettings.enableAuth ?? true
+  settings.defaultChatModel = defaultSettings.defaultChatModel
+  settings.sistem = defaultSettings.ollamaHost
   return settings
 }
 

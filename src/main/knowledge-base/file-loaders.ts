@@ -347,15 +347,17 @@ export async function searchKnowledgeBase(kbId: number, query: string) {
   try {
     log.debug(`[FILE] Searching knowledge base: kbId=${kbId}, query=${query}`)
     const embeddingInstance = await getEmbeddingProvider(kbId)
-    const embedding = await embedMany({
-      model: embeddingInstance,
-      values: [query],
-    })
+    // Use the same embedding path as indexing to ensure consistency
+    const queryEmbeddings = await getOllamaEmbedding(
+      [query],
+      (embeddingInstance as any).modelId,
+      (embeddingInstance as any).apiHost
+    )
     const vectorStore = getVectorStore()
     const indexName = `kb_${kbId}`
     const results = await vectorStore.query({
       indexName,
-      queryVector: embedding.embeddings[0],
+      queryVector: queryEmbeddings[0],
       topK: 1000,
     })
     try {

@@ -449,6 +449,11 @@ export interface Settings extends SessionSettings {
    * @example '1.2.3'
    */
   appVersion?: string
+  /**
+   * Enable or disable application authentication (LDAP login).
+   * When false, the app will skip auth and open directly.
+   */
+  enableAuth?: boolean
 }
 
 export interface ShortcutSetting {

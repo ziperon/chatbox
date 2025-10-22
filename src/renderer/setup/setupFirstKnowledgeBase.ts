@@ -9,23 +9,25 @@ export async function setupFirstKnowledgeBase() {
     try {
       const knowledgeBaseController = platform.getKnowledgeBaseController()
       
-      // Check if any knowledge bases exist
+      // Check if default knowledge base already exists
       const existingKBs = await knowledgeBaseController.list()
-      if (existingKBs && existingKBs.length > 0) {
-        console.log('Knowledge bases already exist, skipping creation')
+      const defaultName = t('База знаний общая')
+      const hasDefault = Array.isArray(existingKBs) && existingKBs.some((kb: any) => kb?.name === defaultName)
+      if (hasDefault) {
+        console.log('Default knowledge base already exists, skipping creation')
         return
       }
 
       console.log('Creating default knowledge base...')
       
-      // Get the first available embedding model
-      const embeddingModel = 'ollama:Qwen3-Embedding-8B:latest' // Default model
+      // Use canonical provider:modelId format
+      const embeddingModel = 'ollama:Qwen3-Embedding-8B:latest'
       const rerankModel = '' // Default to no rerank model
       const visionModel = 'ollama:qwen2_5_3b_ocr_100s:latest' // Default to no vision model
 
-      // Create the default knowledge base
+      // Create the default knowledge base if missing
       await knowledgeBaseController.create({
-        name: t('База знаний'),
+        name: defaultName,
         embeddingModel,
         rerankModel,
         visionModel

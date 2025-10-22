@@ -160,9 +160,21 @@ async function initPresetSessions() {
 
 export async function initSessionsIfNeeded() {
   // 已经做过 migration，只需要检查是否存在 sessionList
-  const sessionList = await storage.getItem(StorageKey.ChatSessionsList, [])
-  if (sessionList.length > 0) {
-    return
+  const sessionList = await storage.getItem(StorageKey.ChatSessionsList, []) as SessionMeta[] | null | undefined
+  if (Array.isArray(sessionList) && sessionList.length > 0) {
+    // Validate that at least one referenced session exists in storage
+    let anySessionExists = false
+    for (const meta of sessionList) {
+      const s = await storage.getItem<Session | null>(StorageKeyGenerator.session(meta.id), null)
+      if (s) {
+        anySessionExists = true
+        break
+      }
+    }
+    if (anySessionExists) {
+      return
+    }
+    // Fall through to reinitialize if none exist
   }
 
   const newSessionList = await initPresetSessions()

@@ -52,8 +52,8 @@ export function settings(): Settings {
     // geminiAPIHost: 'https://generativelanguage.googleapis.com',
     // geminiModel: 'gemini-1.5-pro-latest',
 
-    //ollamaHost: 'http://127.0.0.1:11434',
-    ollamaHost: 'http://llm:11435',
+    ollamaHost: 'http://127.0.0.1:11434',
+    //ollamaHost: 'http://llm:11435',
 
     // groqAPIKey: '',
     // groqModel: 'llama3-70b-8192',
@@ -76,7 +76,7 @@ export function settings(): Settings {
     // customProviders: [],
 
     showWordCount: false,
-    showTokenCount: false,
+    showTokenCount: true,
     showTokenUsed: true,
     showModelName: true,
     showMessageTimestamp: false,
@@ -90,7 +90,11 @@ export function settings(): Settings {
 
     defaultPrompt: getDefaultPrompt(),
 
-    allowReportingAndTracking: true,
+
+    allowReportingAndTracking: false,
+
+    // Authentication
+    enableAuth: false,
 
     enableMarkdownRendering: true,
     enableLaTeXRendering: true,
@@ -103,7 +107,7 @@ export function settings(): Settings {
     autoGenerateTitle: true,
 
     autoLaunch: false,
-    autoUpdate: true,
+    autoUpdate: false,
     betaUpdate: false,
 
     shortcuts: {
@@ -152,7 +156,9 @@ export function getDefaultPrompt() {
 
 export function chatSessionSettings(): SessionSettings {
   return {
-    
+    provider: ModelProviderEnum.Ollama,
+    modelId: 'Qwen3-30B-A3B-Instruct-2507:latest',
+    maxContextMessageCount: 6,
   }
 }
 
@@ -348,8 +354,8 @@ export const SystemProviders: ProviderBaseInfo[] = [
     name: 'Ollama',
     type: ModelProviderType.OpenAI,
     defaultSettings: {
-      //apiHost: 'http://127.0.0.1:11434',
-      apiHost: 'http://llm:11435',
+      apiHost: 'http://127.0.0.1:11434',
+      //apiHost: 'http://llm:11435',
     },
   },
   // {

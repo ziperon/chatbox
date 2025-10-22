@@ -55,6 +55,16 @@ export async function getEmbeddingProvider(kbId: number) {
           )
         }
 
+        // Normalize friendly label format like "Ollama | model:tag" to canonical "provider:model:tag"
+        const pipeIdx = embeddingModel.indexOf('|')
+        if (pipeIdx !== -1) {
+          const left = embeddingModel.slice(0, pipeIdx).trim()
+          const right = embeddingModel.slice(pipeIdx + 1).trim()
+          const providerId = left.toLowerCase().replace(/\s+/g, '') // e.g., 'Ollama' -> 'ollama'
+          embeddingModel = `${providerId}:${right}`
+          log.info(`[MODEL] Converted labeled embedding model to canonical: ${embeddingModel}`)
+        }
+
         // If provider is missing, assume ollama
         if (!embeddingModel.includes(':')) {
           embeddingModel = `ollama:${embeddingModel}`
@@ -80,7 +90,7 @@ export async function getEmbeddingProvider(kbId: number) {
         const providerSettings = modelSettings?.providers?.[providerId]
         const apiHost = typeof providerSettings === 'object' && providerSettings !== null && 'apiHost' in providerSettings
           ? providerSettings.apiHost
-          : 'hhttp://llm:11435'
+          : 'http://llm:11435'
           
         return {
           ...embModel,

@@ -52,6 +52,10 @@ class DesktopKnowledgeBaseController implements KnowledgeBaseController {
   }
 
   async search(kbId: number, query: string) {
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      console.warn('[KB] search called with empty query; skipping')
+      return []
+    }
     const results = await this.ipc.invoke('kb:search', kbId, query)
     return results
   }

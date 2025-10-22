@@ -26,10 +26,11 @@ export function migrateSession(session: Session): Session {
   }
 }
 
-export function sortSessions(sessions: SessionMeta[]): SessionMeta[] {
+export function sortSessions(sessions: SessionMeta[] | null | undefined): SessionMeta[] {
+  const list = Array.isArray(sessions) ? sessions : []
   const reversed: SessionMeta[] = []
   const pinned: SessionMeta[] = []
-  for (const sess of sessions) {
+  for (const sess of list) {
     if (sess.starred) {
       pinned.push(sess)
       continue

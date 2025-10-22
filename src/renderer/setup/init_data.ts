@@ -23,7 +23,6 @@ async function updateAllProviderModels() {
         const modelConfig = getModelSettingUtil(provider.id)
         const modelList = await modelConfig.getMergeOptionGroups({
           ...provider.defaultSettings,
-          ...(settings.providers?.[provider.id] || {}),
         } as ProviderSettings)
 
         if (modelList.length) {

@@ -1,7 +1,7 @@
 {
   "name": "xyz.chatboxapp.ce",
   "productName": "xyz.chatboxapp.ce",
-  "version": "1.1.0",
+  "version": "1.5.6",
   "engines": {
     "node": ">=20.0.0 <23.0.0",
     "npm": ">=10.0.0"
@@ -265,7 +265,7 @@
     "optics-ts": "^2.4.0",
     "p-map": "^7.0.3",
     "p-timeout": "^6.1.4",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^5.4.296",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",

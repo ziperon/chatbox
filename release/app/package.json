@@ -15,7 +15,11 @@
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.6"
+    "@libsql/client": "^0.15.6",
+    "canvas": "^3.2.0",
+    "iconv-corefoundation": "^1.1.7",
+    "pdfjs-dist": "^5.4.296",
+    "sharp": "^0.34.4"
   },
   "devDependencies": {
     "patch-package": "^8.0.0"

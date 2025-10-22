@@ -24,6 +24,13 @@ export default function useShortcut() {
       if (!isSmallScreen) {
         dom.focusMessageInput()
       }
+      // 窗口从托盘/隐藏状态恢复时，确保大屏幕下侧边栏可见
+      try {
+        const store = getDefaultStore()
+        if (!isSmallScreen) {
+          store.set(atoms.showSidebarAtom, true)
+        }
+      } catch (_e) {}
     })
     window.addEventListener('keydown', handleKeyDown)
     return () => {

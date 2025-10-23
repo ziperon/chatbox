@@ -280,7 +280,7 @@ let isAuthenticated = false
 let tray: Tray | null = null
 
 async function showWindow() {
-  mainWindow?.destroy();
+  //mainWindow?.destroy();
   // Create the main window if it doesn't exist
   if (!mainWindow || mainWindow.isDestroyed()) {
     console.log('Creating main window...');
@@ -289,11 +289,10 @@ async function showWindow() {
     if (!mainWindow) {
       throw new Error('Failed to create main window');
     }
-  } else {
+  }
   if (mainWindow.isMinimized()) {
       mainWindow.restore()
     }
-  }
   mainWindow.show() 
   mainWindow.focus()
   mainWindow.webContents.reload();

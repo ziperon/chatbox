@@ -1,7 +1,7 @@
 {
   "name": "xyz.chatboxapp.ce",
   "productName": "xyz.chatboxapp.ce",
-  "version": "1.15.5 ",
+  "version": "1.5.6",
   "description": "A desktop client for multiple cutting-edge AI models",
   "author": {
     "name": "Mediocre Company",
@@ -17,7 +17,7 @@
   "dependencies": {
     "@libsql/client": "^0.15.6",
     "canvas": "^3.2.0",
-    "iconv-corefoundation": "^1.1.7",
+    "deasync": "^0.1.30",
     "pdfjs-dist": "^5.4.296",
     "sharp": "^0.34.4"
   },

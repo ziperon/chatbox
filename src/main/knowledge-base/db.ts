@@ -271,46 +271,39 @@ export async function withTransaction<T>(operation: () => Promise<T>): Promise<T
   const transactionId = Math.random().toString(36).slice(2, 10)
 
   try {
+    log.debug(`[DB] Starting transaction ${transactionId}`)
+    await db.execute('BEGIN TRANSACTION')
+    const result = await operation()
+    await db.execute('COMMIT')
+    log.debug(`[DB] Transaction ${transactionId} committed successfully`)
+    return result
+  } catch (error) {
+    log.error(`[DB] Transaction ${transactionId} failed:`, error)
+
     try {
-      // Start transaction
-      await db.execute('BEGIN TRANSACTION')
-      
-      try {
-        // Execute the operation
-        const result = await operation()
-        
-        // Commit the transaction
-        await db.execute('COMMIT')
-        return result
-      } catch (operationError) {
-        // Rollback on operation error
-        try {
-          await db.execute('ROLLBACK')
-        } catch (rollbackError) {
-          log.error(`[DB] Error rolling back transaction (attempt ${attempt}):`, rollbackError)
-          sentry.withScope((scope) => {
-            scope.setTag('component', 'knowledge-base-db')
-            scope.setTag('operation', 'transaction_rollback')
-            scope.setTag('attempt', attempt.toString())
-            sentry.captureException(rollbackError)
-          })
-        }
-        
-        // If this is a connection error or session error, we'll retry
-        const errorMessage = operationError instanceof Error ? operationError.message : String(operationError)
-        if (errorMessage.includes('session') || errorMessage.includes('connection')) {
-          lastError = operationError as Error
-          log.warn(`[DB] Session/connection error in transaction (attempt ${attempt}/${maxRetries}):`, operationError)
-          
-          // Wait before retry
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
-            continue
-          }
-        }
-        
-        // For other errors or if we've exhausted retries, rethrow
-        throw operationError
+      await db.execute('ROLLBACK')
+      log.debug(`[DB] Transaction ${transactionId} rolled back`)
+    } catch (rollbackError) {
+      log.error(`[DB] Failed to rollback transaction ${transactionId}:`, rollbackError)
+      sentry.withScope((scope) => {
+        scope.setTag('component', 'knowledge-base-db')
+        scope.setTag('operation', 'transaction_rollback')
+        scope.setExtra('transactionId', transactionId)
+        sentry.captureException(rollbackError)
+      })
+    }
+
+    // Report transaction failures to Sentry for critical operations
+    sentry.withScope((scope) => {
+      scope.setTag('component', 'knowledge-base-db')
+      scope.setTag('operation', 'transaction_failure')
+      scope.setExtra('transactionId', transactionId)
+      sentry.captureException(error)
+    })
+
+    throw error
+  }
+}
 
 // Cleanup processing files that may have been left from previous session
 async function cleanupProcessingFiles() {
@@ -368,3 +361,4 @@ export async function checkProcessingTimeouts() {
     log.error('[DB] Failed to check processing timeouts:', err)
   }
 }
+      

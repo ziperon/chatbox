@@ -232,6 +232,7 @@
     "csv-parse": "^6.1.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
+    "deasync": "^0.1.30",
     "electron-debug": "^3.2.0",
     "electron-log": "^5.3.4",
     "electron-store": "^8.1.0",

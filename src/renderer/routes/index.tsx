@@ -80,11 +80,14 @@ function Index() {
   }, [session])
 
   const { copilots: myCopilots } = useMyCopilots()
-  const { copilots: remoteCopilots } = useRemoteCopilots()
+  // const { copilots: remoteCopilots } = useRemoteCopilots()
   const selectedCopilotId = useMemo(() => session?.copilotId, [session?.copilotId])
   const selectedCopilot = useMemo(
-    () => myCopilots.find((c) => c.id === selectedCopilotId) || remoteCopilots.find((c) => c.id === selectedCopilotId),
-    [myCopilots, remoteCopilots, selectedCopilotId]
+    () => myCopilots.find((c) => c.id === selectedCopilotId)// || remoteCopilots.find((c) => c.id === selectedCopilotId)
+    ,
+    [myCopilots, 
+      // remoteCopilots,
+       selectedCopilotId]
   )
   useEffect(() => {
     setSession((old) => ({

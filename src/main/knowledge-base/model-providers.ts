@@ -47,7 +47,6 @@ export async function getEmbeddingProvider(kbId: number) {
         }
 
         let embeddingModel = (rs.rows[0].embedding_model as string) || ''
-        console.log("Embedding model: "+ embeddingModel)
         // Provide sensible defaults: prefer Ollama nomic-embed-text
         if (!embeddingModel || typeof embeddingModel !== 'string') {
           embeddingModel = 'ollama:nomic-embed-text:latest'
@@ -80,9 +79,6 @@ export async function getEmbeddingProvider(kbId: number) {
         }
         const providerId = embeddingModel.slice(0, sepIdx)
         const modelId = embeddingModel.slice(sepIdx + 1)
-        console.log("Embedding model: "+ embeddingModel)
-        console.log("Provider ID: "+ providerId)
-        console.log("Model ID: "+ modelId)
         const modelSettings = getMergedSettings(providerId, modelId)
         const model = getModel(modelSettings, getConfig(), await createModelDependencies())
         console.log("Model: "+ modelSettings.modelId)

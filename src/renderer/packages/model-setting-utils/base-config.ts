@@ -20,13 +20,13 @@ export default abstract class BaseConfig implements ModelSettingUtil {
   protected abstract listProviderModels(settings: ProviderSettings): Promise<string[]>
 
   private listRemoteProviderModels(): Promise<string[]> {
-    return remote
-      .getModelConfigsWithCache({
-        aiProvider: this.provider,
-      })
-      .then((res) => {
-        return res.option_groups.flatMap((group) => group.options).map((o) => o.value)
-      })
+    // return remote
+    //   .getModelConfigsWithCache({
+    //     aiProvider: this.provider,
+    //   })
+    //   .then((res) => {
+    //     return res.option_groups.flatMap((group) => group.options).map((o) => o.value)
+    //   })
   }
 
   // 有三个来源：本地写死、后端配置、服务商模型列表

@@ -285,19 +285,19 @@ async function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     console.log('Creating main window...');
     mainWindow = await createWindow();
-
+    
     if (!mainWindow) {
       throw new Error('Failed to create main window');
     }
   } else {
-    if (mainWindow.isMinimized()) {
+  if (mainWindow.isMinimized()) {
       mainWindow.restore()
     }
-    mainWindow.show() 
-    mainWindow.focus()
   }
-
-}
+  mainWindow.show() 
+  mainWindow.focus()
+  mainWindow.webContents.reload();
+  }
 
 // --------- 快捷键 ---------
 
@@ -565,13 +565,54 @@ async function createWindow() {
     // Hide menu bar on Windows/Linux
     mainWindow.setMenuBarVisibility(false);
 
-    // Handle network requests
+    // Handle network requests and set Content Security Policy
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+      
+      // Skip CSP for development to allow HMR and other dev tools
+      if (isDev) {
+        // In development, allow everything for localhost and webpack dev server
+        const devCsp = [
+          "default-src 'self' http://localhost:* http://127.0.0.1:* ws: wss:",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* http://127.0.0.1:*",
+          "style-src 'self' 'unsafe-inline' http://localhost:* http://127.0.0.1:*",
+          "img-src 'self' data: blob: http: https:",
+          "font-src 'self' data: http: https:",
+          "connect-src 'self' http: https: ws: wss:",
+          "frame-src 'self' http: https:",
+          "media-src 'self' http: https:",
+          "worker-src 'self' blob:",
+          "object-src 'self'",
+          "form-action 'self'",
+          "base-uri 'self'"
+        ].join('; ');
+        
+        const responseHeaders: Record<string, string[]> = {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [devCsp]
+        };
+        
+        // For development, also set CORS headers for XHR requests
+        // Using type assertion to handle Electron's resource types
+        const resourceType = details.resourceType as string;
+        if (resourceType === 'xhr' || resourceType === 'xmlhttprequest') {
+          responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+          responseHeaders['Access-Control-Allow-Methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
+          responseHeaders['Access-Control-Allow-Headers'] = ['Content-Type, Authorization'];
+        }
+        
+        return callback({ responseHeaders });
+      }
+      
+      // Production CSP - more restrictive
+   
       callback({
         responseHeaders: {
           ...details.responseHeaders,
-          'Content-Security-Policy': ["default-src 'self'"],
-        },
+          'X-Content-Type-Options': ['nosniff'],
+          'X-Frame-Options': ['SAMEORIGIN'],
+          'X-XSS-Protection': ['1; mode=block']
+        }
       });
     });
 
@@ -632,9 +673,9 @@ if (!gotTheLock) {
   app.on('window-all-closed', () => {
     // Respect the OSX convention of having the application in memory even
     // after all windows have been closed
-    // if (process.platform !== 'darwin') {
-    //     app.quit()
-    // }
+    if (process.platform !== 'darwin') {
+         app.quit()
+    }
   })
 
   app

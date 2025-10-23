@@ -9,13 +9,29 @@ import { getLogger } from '../util'
 const log = getLogger('knowledge-base:db')
 
 // Database file path
-const dbPath = path.join(app.getPath('userData'), 'databases', 'chatbox_kb.db')
+let dbPath: string
+let dbDir: string
 
-// Ensure database directory exists
-const dbDir = path.dirname(dbPath)
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true })
+// Initialize database paths with proper error handling
+function initializeDatabasePaths() {
+  try {
+    dbPath = path.normalize(path.join(app.getPath('userData'), 'databases', 'chatbox_kb.db'))
+    dbDir = path.dirname(dbPath)
+    
+    // Ensure database directory exists
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true, mode: 0o755 })
+    }
+    
+    log.info(`[DB] Database path: ${dbPath}`)
+  } catch (error) {
+    log.error('[DB] Failed to initialize database paths:', error)
+    throw error
+  }
 }
+
+// Initialize paths immediately
+initializeDatabasePaths()
 
 // Polyfill for mastra
 if (typeof global.crypto === 'undefined' || !('subtle' in global.crypto)) {
@@ -78,52 +94,147 @@ async function initDB(db: Client) {
 
 export async function initializeDatabase() {
   try {
-    vectorStore = new LibSQLVector({
-      connectionUrl: `file:${dbPath}`,
-    })
-    // 这里不再创建新的 client，因为多个 client 同时操作一个 db 文件会导致数据损坏
-    // biome-ignore lint/suspicious/noExplicitAny: access internal property
-    db = (vectorStore as any).turso
-    await initDB(db)
-
-    // Clean up any processing files left from previous session
-    await cleanupProcessingFiles()
+    log.info('[DB] Initializing database...')
+    
+    // Ensure paths are initialized
+    if (!dbPath || !dbDir) {
+      initializeDatabasePaths()
+    }
+    
+    // Close any existing connections
+    if (db) {
+      try {
+        await db.close()
+      } catch (e) {
+        log.warn('[DB] Error closing existing database connection:', e)
+      }
+    }
+    
+    // Initialize vector store with retry logic
+    let retries = 3
+    let lastError: Error | null = null
+    
+    while (retries > 0) {
+      try {
+        vectorStore = new LibSQLVector({
+          connectionUrl: `file:${dbPath}`,
+          // Add additional connection options for better Windows compatibility
+          syncUrl: undefined,
+          authToken: undefined,
+          syncInterval: 0
+        })
+        
+        // Get the underlying turso client
+        // biome-ignore lint/suspicious/noExplicitAny: access internal property
+        db = (vectorStore as any).turso
+        
+        // Test the connection
+        await db.execute('SELECT 1')
+        
+        // Initialize database schema
+        await initDB(db)
+        
+        // Clean up any processing files left from previous session
+        await cleanupProcessingFiles()
+        
+        log.info('[DB] Database initialized successfully')
+        return
+      } catch (error) {
+        lastError = error as Error
+        log.warn(`[DB] Database initialization attempt ${4 - retries} failed:`, error)
+        retries--
+        
+        // Wait before retry
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+    }
+    
+    // If we get here, all retries failed
+    throw lastError || new Error('Failed to initialize database after multiple attempts')
   } catch (error) {
-    log.error('[DB] Failed to initialize database system:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    log.error('[DB] Critical error initializing database:', error)
+    
     sentry.withScope((scope) => {
       scope.setTag('component', 'knowledge-base-db')
       scope.setTag('operation', 'vector_store_initialization')
       scope.setExtra('dbPath', dbPath)
+      scope.setExtra('error', errorMessage)
       sentry.captureException(error)
     })
-    throw error
+    
+    throw new Error(`Failed to initialize database: ${errorMessage}`)
   }
+}
+
+let isInitializing = false
+
+export async function ensureDatabaseInitialized() {
+  if (!db || !vectorStore) {
+    if (isInitializing) {
+      // If we're already initializing, wait a bit and check again
+      await new Promise(resolve => setTimeout(resolve, 500))
+      if (db && vectorStore) return { db, vectorStore }
+      throw new Error('Database initialization is taking longer than expected')
+    }
+    
+    try {
+      isInitializing = true
+      await initializeDatabase()
+      return { db: db!, vectorStore: vectorStore! }
+    } finally {
+      isInitializing = false
+    }
+  }
+  return { db, vectorStore }
 }
 
 export function getDatabase(): Client {
   if (!db) {
-    const error = new Error('Database not initialized')
-    log.error('[DB] Database not initialized')
-    sentry.withScope((scope) => {
-      scope.setTag('component', 'knowledge-base-db')
-      scope.setTag('operation', 'database_access')
-      sentry.captureException(error)
+    log.warn('[DB] Database not initialized, attempting to initialize synchronously')
+    // Try to initialize synchronously (not recommended, but maintains backward compatibility)
+    require('deasync')((done: () => void) => {
+      ensureDatabaseInitialized()
+        .then(() => done())
+        .catch(() => done())
     })
-    throw error
+    
+    if (!db) {
+      const error = new Error('Database not available')
+      log.error('[DB] Database not available')
+      sentry.withScope((scope) => {
+        scope.setTag('component', 'knowledge-base-db')
+        scope.setTag('operation', 'database_access')
+        sentry.captureException(error)
+      })
+      throw error
+    }
   }
   return db
 }
 
 export function getVectorStore(): LibSQLVector {
   if (!vectorStore) {
-    const error = new Error('Vector store not initialized')
-    log.error('[DB] Vector store not initialized')
-    sentry.withScope((scope) => {
-      scope.setTag('component', 'knowledge-base-db')
-      scope.setTag('operation', 'vector_store_access')
-      sentry.captureException(error)
+    log.warn('[DB] Vector store not initialized, attempting to initialize synchronously')
+    // Try to initialize synchronously (not recommended, but maintains backward compatibility)
+    require('deasync')((done: () => void) => {
+      ensureDatabaseInitialized()
+        .then(() => done())
+        .catch(() => done())
     })
-    throw error
+    
+    if (!vectorStore) {
+      const error = new Error('Vector store not available')
+      log.error('[DB] Vector store not available')
+      sentry.withScope((scope) => {
+        scope.setTag('component', 'knowledge-base-db')
+        scope.setTag('operation', 'vector_store_access')
+        sentry.captureException(error)
+      })
+      throw error
+    }
   }
   return vectorStore
 }
@@ -160,39 +271,46 @@ export async function withTransaction<T>(operation: () => Promise<T>): Promise<T
   const transactionId = Math.random().toString(36).slice(2, 10)
 
   try {
-    log.debug(`[DB] Starting transaction ${transactionId}`)
-    await db.execute('BEGIN TRANSACTION')
-    const result = await operation()
-    await db.execute('COMMIT')
-    log.debug(`[DB] Transaction ${transactionId} committed successfully`)
-    return result
-  } catch (error) {
-    log.error(`[DB] Transaction ${transactionId} failed:`, error)
-
     try {
-      await db.execute('ROLLBACK')
-      log.debug(`[DB] Transaction ${transactionId} rolled back`)
-    } catch (rollbackError) {
-      log.error(`[DB] Failed to rollback transaction ${transactionId}:`, rollbackError)
-      sentry.withScope((scope) => {
-        scope.setTag('component', 'knowledge-base-db')
-        scope.setTag('operation', 'transaction_rollback')
-        scope.setExtra('transactionId', transactionId)
-        sentry.captureException(rollbackError)
-      })
-    }
-
-    // Report transaction failures to Sentry for critical operations
-    sentry.withScope((scope) => {
-      scope.setTag('component', 'knowledge-base-db')
-      scope.setTag('operation', 'transaction_failure')
-      scope.setExtra('transactionId', transactionId)
-      sentry.captureException(error)
-    })
-
-    throw error
-  }
-}
+      // Start transaction
+      await db.execute('BEGIN TRANSACTION')
+      
+      try {
+        // Execute the operation
+        const result = await operation()
+        
+        // Commit the transaction
+        await db.execute('COMMIT')
+        return result
+      } catch (operationError) {
+        // Rollback on operation error
+        try {
+          await db.execute('ROLLBACK')
+        } catch (rollbackError) {
+          log.error(`[DB] Error rolling back transaction (attempt ${attempt}):`, rollbackError)
+          sentry.withScope((scope) => {
+            scope.setTag('component', 'knowledge-base-db')
+            scope.setTag('operation', 'transaction_rollback')
+            scope.setTag('attempt', attempt.toString())
+            sentry.captureException(rollbackError)
+          })
+        }
+        
+        // If this is a connection error or session error, we'll retry
+        const errorMessage = operationError instanceof Error ? operationError.message : String(operationError)
+        if (errorMessage.includes('session') || errorMessage.includes('connection')) {
+          lastError = operationError as Error
+          log.warn(`[DB] Session/connection error in transaction (attempt ${attempt}/${maxRetries}):`, operationError)
+          
+          // Wait before retry
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+            continue
+          }
+        }
+        
+        // For other errors or if we've exhausted retries, rethrow
+        throw operationError
 
 // Cleanup processing files that may have been left from previous session
 async function cleanupProcessingFiles() {

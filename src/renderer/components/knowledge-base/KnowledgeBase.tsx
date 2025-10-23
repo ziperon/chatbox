@@ -229,10 +229,10 @@ const KnowledgeBasePage: React.FC = () => {
   useEffect(() => {
     const fetchChatboxAIModels = async () => {
       try {
-        const config = await remote.getRemoteConfig('knowledge_base_models')
-        if (config.knowledge_base_models) {
-          setChatboxAIModels(config.knowledge_base_models)
-        }
+        // const config = await remote.getRemoteConfig('knowledge_base_models')
+        // if (config.knowledge_base_models) {
+        //   setChatboxAIModels(config.knowledge_base_models)
+        // }
       } catch (error) {
         toast.error(t('Failed to fetch Chatbox AI models config, Error: {{error}}', { error: error }))
       }

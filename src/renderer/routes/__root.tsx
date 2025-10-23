@@ -202,7 +202,7 @@ function Root() {
       {/* 图片预览 */}
       <PictureDialog />
       {/* 似乎是从后端拉一个弹窗的配置 */}
-      <RemoteDialogWindow />
+      {/* <RemoteDialogWindow /> */}
       {/* 手机端举报内容 */}
       {/* <ReportContentDialog /> */}
       {/* 搜索 */}

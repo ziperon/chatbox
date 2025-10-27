@@ -280,8 +280,7 @@ let isAuthenticated = false
 let tray: Tray | null = null
 
 async function showWindow() {
-  //mainWindow?.destroy();
-  // Create the main window if it doesn't exist
+  // Создать главное окно если оно не существует
   if (!mainWindow || mainWindow.isDestroyed()) {
     console.log('Creating main window...');
     mainWindow = await createWindow();
@@ -290,13 +289,25 @@ async function showWindow() {
       throw new Error('Failed to create main window');
     }
   }
+  
+  // Восстановить если свернуто
   if (mainWindow.isMinimized()) {
-      mainWindow.restore()
-    }
-  mainWindow.show() 
-  mainWindow.focus()
-  mainWindow.webContents.reload();
+    mainWindow.restore();
   }
+  
+  // Показать и сфокусировать окно
+  mainWindow.show();
+  mainWindow.focus();
+  
+  // Отправить событие active
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('active', {
+      type: 'window-shown',
+      timestamp: Date.now(),
+      isVisible: true
+    });
+  }
+}
 
 // --------- 快捷键 ---------
 
@@ -690,26 +701,9 @@ if (!gotTheLock) {
       } else {
         // Skip auth and open main window directly
         isAuthenticated = true
-        await showOrHideWindow()
+        await showWindow()
       }
       ensureTray()
-      // Remove this if your app does not use auto updates
-      // eslint-disable-next-line
-      app.on('activate', () => {
-        // On macOS it's common to re-create a window in the app when the
-        // dock icon is clicked and there are no other windows open.
-        if (mainWindow === null) {
-          if (isAuthenticated) {
-            createWindow()
-          } else if (!authWindow) {
-            ensureLdapAuth()
-          }
-        }
-        if (mainWindow && !mainWindow.isVisible()) {
-          mainWindow.show()
-          mainWindow.focus()
-        }
-      })
       // 监听窗口大小位置变化的代码，很大程度参考了 VSCODE 的实现 /Users/benn/Documents/w/vscode/src/vs/platform/windows/electron-main/windowsStateHandler.ts
       // When a window looses focus, save all windows state. This allows to
       // prevent loss of window-state data when OS is restarted without properly
@@ -814,8 +808,8 @@ ipcMain.handle('ensureProxy', (event, json) => {
 })
 
 ipcMain.handle('relaunch', () => {
-  //app.relaunch()
-  //app.quit()
+  app.relaunch()
+  app.quit()
 })
 
 ipcMain.handle('getConfig', (event) => {

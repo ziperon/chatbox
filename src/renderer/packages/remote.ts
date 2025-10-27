@@ -142,11 +142,11 @@ export async function getRemoteConfig(config: keyof RemoteConfig) {
   type Response = {
     data: Pick<RemoteConfig, typeof config>
   }
-  const res = await ofetch<Response>(`${getAPIOrigin()}/api/remote_config/${config}`, {
-    retry: 3,
-    headers: await getChatboxHeaders(),
-  })
-  return res['data']
+  // const res = await ofetch<Response>(`${getAPIOrigin()}/api/remote_config/${config}`, {
+  //   retry: 3,
+  //   headers: await getChatboxHeaders(),
+  // })
+  return {}
 }
 
 export interface DialogConfig {
@@ -158,13 +158,13 @@ export async function getDialogConfig(params: { uuid: string; language: string; 
   type Response = {
     data: null | DialogConfig
   }
-  const res = await ofetch<Response>(`${getAPIOrigin()}/api/dialog_config`, {
-    method: 'POST',
-    retry: 3,
-    body: params,
-    headers: await getChatboxHeaders(),
-  })
-  return res['data'] || null
+  // const res = await ofetch<Response>(`${getAPIOrigin()}/api/dialog_config`, {
+  //   method: 'POST',
+  //   retry: 3,
+  //   body: params,
+  //   headers: await getChatboxHeaders(),
+  // })
+  return  null
 }
 
 export async function getLicenseDetail(params: { licenseKey: string }) {
@@ -436,28 +436,28 @@ export async function getModelConfigs(params: { aiProvider: ModelProvider; licen
       option_groups: ModelOptionGroup[]
     }
   }
-  const afetch = await getAfetch()
-  const res = await afetch(
-    `${getAPIOrigin()}/api/model_configs`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(await getChatboxHeaders()),
-      },
-      body: JSON.stringify({
-        aiProvider: params.aiProvider,
-        licenseKey: params.licenseKey,
-        language: params.language,
-      }),
-    },
-    {
-      parseChatboxRemoteError: true,
-      retry: 2,
-    }
-  )
-  const json: Response = await res.json()
-  return json['data']
+  // const afetch = await getAfetch()
+  // const res = await afetch(
+  //   `${getAPIOrigin()}/api/model_configs`,
+  //   {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       ...(await getChatboxHeaders()),
+  //     },
+  //     body: JSON.stringify({
+  //       aiProvider: params.aiProvider,
+  //       licenseKey: params.licenseKey,
+  //       language: params.language,
+  //     }),
+  //   },
+  //   {
+  //     parseChatboxRemoteError: true,
+  //     retry: 2,
+  //   }
+  // )
+  // const json: Response = await res.json()
+  return {}
 }
 
 export async function getModelManifest(params: { aiProvider: ModelProvider; licenseKey?: string; language?: string }) {

@@ -1,8 +1,8 @@
 export async function getOllamaEmbedding(
   input: string[], 
-  model: string = 'dengcao/Qwen3-Embedding-4B:Q8_0',
-  // apiHost: string = 'http://llm:11435'
-  apiHost: string = 'http://localhost:11434'
+  model: string = 'Qwen3-Embedding-4B:Q8_0',
+  apiHost: string = 'http://llm:11435'
+  // apiHost: string = 'http://localhost:11434'
 ): Promise<number[][]> {
   const vectors: number[][] = [];
 
